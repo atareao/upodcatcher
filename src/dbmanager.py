@@ -36,6 +36,7 @@ DROP TABLE if exists FEEDS;
 DROP TABLE if exists LISTS;
 DROP TABLE if exists TRACKS;
 DROP TABLE if exists LIST;
+DROP VIEW if exists TRACKS_VIEW;
 '''
 
 SQLString = '''
@@ -56,6 +57,7 @@ CREATE TABLE if not exists TRACKS (
     DATE TEXT NOT NULL,
     TITLE TEXT NOT NULL,
     URL TEXT UNIQUE NOT NULL,
+    VIEWED BOOLEAN NOT NULL DEFAULT FALSE,
     DOWNLOADED BOOLEAN NOT NULL DEFAULT FALSE,
     NORDER INTEGER);
 CREATE TABLE if not exists LIST (
@@ -64,6 +66,21 @@ CREATE TABLE if not exists LIST (
     TRACK_ID INTEGER REFERENCES TRACKS (ID) ON DELETE CASCADE,
     VIEWED BOOLEAN DEFAULT FALSE,
     NORDER INTEGER);
+CREATE VIEW if not exists TRACKS_VIEW AS
+    SELECT TRACKS.ID,
+           FEEDS.TITLE AS PODCAST_NAME,
+           FEEDS.IMAGE AS PODCAST_IMAGE,
+           TRACKS.IDEN,
+           TRACKS.DATE,
+           TRACKS.TITLE,
+           TRACKS.URL,
+           TRACKS.VIEWED,
+           TRACKS.DOWNLOADED,
+           TRACKS.NORDER
+      FROM TRACKS
+           LEFT JOIN
+           FEEDS
+     WHERE TRACKS.FEED_ID = FEEDS.ID;
 INSERT OR IGNORE INTO LISTS (NAME, NORDER) VALUES ('Recent', 1);
 '''
 
@@ -78,7 +95,7 @@ def create_base64(image_url):
             for chunk in r.iter_content(1024):
                 writer_file.write(chunk)
             old_image = Image.open(writer_file)
-            old_image.thumbnail((48, 48), Image.ANTIALIAS)
+            old_image.thumbnail((128, 128), Image.ANTIALIAS)
             new_image = io.BytesIO()
             old_image.save(new_image, "png")
             base64string = base64.b64encode(new_image.getvalue())
@@ -91,8 +108,8 @@ def create_base64(image_url):
 
 class DBManager():
     def __init__(self, restart=False):
-        if not os.path.exists(comun.DATABASEDIR):
-            os.makedirs(comun.DATABASEDIR)
+        if not os.path.exists(comun.DATADIR):
+            os.makedirs(comun.DATADIR)
         self.db = sqlite3.connect(comun.DATABASE)
         cursor = self.db.cursor()
         if restart is True:
@@ -144,19 +161,16 @@ class DBManager():
                 date = parse(entry.published).strftime('%Y%m%dT%H%M%S')
                 title = entry.title
                 url = entry.enclosures[0]['url']
+                viewed = False
                 downloaded = False
                 try:
                     cursor.execute('''INSERT INTO TRACKS(FEED_ID, IDEN, DATE,
- TITLE, URL, DOWNLOADED, NORDER) VALUES(?, ?, ?, ?, ?, ?, ?)''', (feed_id,
-                                                                  iden,
-                                                                  date,
-                                                                  title,
-                                                                  url,
-                                                                  downloaded,
-                                                                  norder))
+ TITLE, URL, VIEWED, DOWNLOADED, NORDER) VALUES(?, ?, ?, ?, ?, ?, ?, ?)''',
+                                   (feed_id, iden, date, title, url, viewed,
+                                    downloaded, norder))
                     track_id = cursor.lastrowid
                     cursor.execute('''INSERT INTO LIST(LIST_ID, TRACK_ID,
- VIEWED, NORDER) VALUES(?, ?, ?, ?)''', (1, track_id, False, norder2))
+ VIEWED, NORDER) VALUES(?, ?, ?, ?)''', (1, track_id, viewed, norder2))
                 except Exception as e:
                     print('---', e, '---')
             self.db.commit()
@@ -268,18 +282,41 @@ NORDER) VALUES(?, ?, ?, ?)''', (list_id, track_id, False, norder))
             print('---', e, '---')
         return None
 
+    def get_feeds(self):
+        cursor = self.db.cursor()
+        try:
+            cursor.execute('SELECT * FROM FEEDS')
+            return cursor.fetchall()
+        except (sqlite3.IntegrityError, AttributeError) as e:
+            print('---', e, '---')
+        return []
+
+    def get_tracks(self):
+        cursor = self.db.cursor()
+        try:
+            cursor.execute('SELECT * FROM TRACKS_VIEW')
+            return cursor.fetchall()
+        except (sqlite3.IntegrityError, AttributeError) as e:
+            print('---', e, '---')
+        return []
+
 
 if __name__ == '__main__':
-    dbmanager = DBManager(True)
+    create = False
+    dbmanager = DBManager(create)
+    if create is False:
+        print(dbmanager.get_feeds())
+        print(dbmanager.get_tracks())
+    else:
+        dbmanager.add_feed('http://feeds.feedburner.com/ugeek')
+        print(dbmanager.get_feed_id('http://feeds.feedburner.com/ugeek'))
+        dbmanager.add_tracks('http://feeds.feedburner.com/ugeek')
+        dbmanager.add_list('Recent')
+        dbmanager.set_track_downloaded(45, True)
+        print(dbmanager.is_track_downloaded(45))
+        print(dbmanager.is_track_downloaded(44))
+        print(dbmanager.set_track_viewed(25))
+        dbmanager.removed_viewed_from_list(1)
+        sortedlist = [[1, 2], [2, 1], [3, 5]]
+        dbmanager.sort_list(sortedlist)
 
-    dbmanager.add_feed('http://feeds.feedburner.com/ugeek')
-    print(dbmanager.get_feed_id('http://feeds.feedburner.com/ugeek'))
-    dbmanager.add_tracks('http://feeds.feedburner.com/ugeek')
-    dbmanager.add_list('Recent')
-    dbmanager.set_track_downloaded(45, True)
-    print(dbmanager.is_track_downloaded(45))
-    print(dbmanager.is_track_downloaded(44))
-    print(dbmanager.set_track_viewed(25))
-    dbmanager.removed_viewed_from_list(1)
-    sortedlist = [[1, 2], [2, 1], [3, 5]]
-    dbmanager.sort_list(sortedlist)

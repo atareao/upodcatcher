@@ -34,11 +34,13 @@ from gi.repository import Gst
 from gi.repository import Gtk
 from gi.repository import GLib
 from gi.repository import GObject
+from dbus.mainloop.glib import DBusGMainLoop
 import threading
 from datetime import datetime
 from datetime import timedelta
 from enum import Enum
 import time
+from sound_menu import SoundMenuControls
 
 
 def sleep(milliseconds=1000):
@@ -54,18 +56,6 @@ class Status(Enum):
     PAUSED = 2
 
 
-class IdleObject(GObject.GObject):
-    """
-    Override GObject.GObject to always emit signals in the main thread
-    by emmitting on an idle handler
-    """
-    def __init__(self):
-        GObject.GObject.__init__(self)
-
-    def emit(self, *args):
-        GLib.idle_add(GObject.GObject.emit, self, *args)
-
-
 class Player(GObject.GObject):
     __gsignals__ = {
         'started': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (int,)),
@@ -76,18 +66,76 @@ class Player(GObject.GObject):
 
     def __init__(self):
         GObject.GObject.__init__(self)
+        DBusGMainLoop(set_as_default=True)
         Gst.init_check(None)
         self.IS_GST010 = Gst.version()[0] == 0
         self.status = Status.STOPPED
+        self.sound_menu = SoundMenuControls('uPodCatcher')
         self.sound = None
         self.thread = None
         self.player = Gst.ElementFactory.make("playbin", "player")
         self.player.connect("about-to-finish", self.on_player_finished)
         bus = self.player.get_bus()
         bus.connect("message", self.on_player_message)
+        # Overwrite libraty methods
+        self.sound_menu._sound_menu_is_playing = self._sound_menu_is_playing
+        self.sound_menu._sound_menu_play = self._sound_menu_play
+        self.sound_menu._sound_menu_pause = self._sound_menu_pause
+        self.sound_menu._sound_menu_next = self._sound_menu_next
+        self.sound_menu._sound_menu_previous = self._sound_menu_previous
+        self.sound_menu._sound_menu_raise = self._sound_menu_raise
+
+    def _sound_menu_is_playing(self):
+        """Called in the first click"""
+        return self.status == Status.PLAYING
+
+    def _sound_menu_play(self):
+        """Play"""
+        self.status = Status.PLAYING
+        self.is_playing = True  # Need to overwrite
+        self.sound_menu.song_changed('', '', 'Title of the song', None) #Icon)
+        self.play()
+
+    def _sound_menu_pause(self):
+        """Pause"""
+        print('***********************************************')
+        # self.status = Status.PAUSED
+        # self.is_playing = False  # Need to overwrite
+        self.pause()
+        # self.sound_menu.signal_paused()
+
+    def _sound_menu_next(self):
+        """Next"""
+        self._set_new_play('next')
+
+    def _sound_menu_previous(self):
+        """Previous"""
+        self._set_new_play('previous')
+
+    def _sound_menu_raise(self):
+        """Click on player"""
+        self.win_preferences.show()
+
+    def _set_new_play(self, what):
+        """Next or Previous"""
+        self.noise.refresh_all_ogg()
+        # Get Next/Previous
+        if what == 'next':
+            self.noise.set_next()
+        if what == 'previous':
+            self.noise.set_previous()
+        # From pause?
+        self.player.set_state(Gst.State.READY)
+        if not self.is_playing:
+            self.is_playing = True
+        # Set new sound
+        self.player.set_property('uri', self.noise.get_current_filename())
+        # Play
+        self._sound_menu_play()
 
     def emit(self, *args):
         GObject.GObject.emit(self, *args)
+        GObject.idle_add(GObject.GObject.emit, self, *args)
         GLib.idle_add(GObject.GObject.emit, self, *args)
 
     def on_player_finished(self, player):
@@ -110,19 +158,23 @@ class Player(GObject.GObject):
 
     def __play(self):
         if self.sound is not None:
+            print('---', self.sound, '---')
             self.player.set_property('uri', 'file://' + self.sound)
             self.player.set_state(Gst.State.PLAYING)
             self.status = Status.PLAYING
             self.emit('started', self.get_relative_position())
+            self.sound_menu.signal_playing()
 
     def play(self):
         if self.status is Status.PAUSED:
             self.player.set_state(Gst.State.PLAYING)
             self.status = Status.PLAYING
             self.emit('started', self.get_relative_position())
+            self.sound_menu.signal_playing()
         elif self.status is Status.STOPPED:
-            self.thread = threading.Thread(target=self.__play, daemon=True)
-            self.thread.start()
+            #self.thread = threading.Thread(target=self.__play, daemon=True)
+            #self.thread.start()
+            self.__play()
 
     def stop(self):
         if self.status is not Status.STOPPED:
@@ -135,6 +187,7 @@ class Player(GObject.GObject):
             self.player.set_state(Gst.State.PAUSED)
             self.status = Status.PAUSED
             self.emit('paused', self.get_relative_position())
+            self.sound_menu.signal_paused()
 
     def get_duration(self):
         if self.IS_GST010:
@@ -181,15 +234,24 @@ if __name__ == '__main__':
         print(player, position, what)
     print(200)
     player2 = Player()
-    player2.set_sound('/datos/Descargas/sample2.wav')
+    player2.set_sound('/home/lorenzo/.config/upodcatcher/054.%20Telef%C3%B3nica%20esta%20siendo%20atacada!%20.mp3')
+    #player2.set_sound('/home/lorenzo/Descargas/sample.mp3')
     player2.connect('started', fin, 'started')
     player2.connect('paused', fin, 'paused')
     player2.connect('stopped', fin, 'stopped')
+    player2.connect('ended', fin, 'ended')
     player2.play()
     print(1, player2.get_relative_position())
     time.sleep(2)
     player2.set_relative_position(50)
     print(2, player2.get_relative_position())
-    time.sleep(5)
+    time.sleep(2)
     print(3, player2.get_relative_position())
+    player2.set_relative_position(98)
+    print(4, player2.get_relative_position())
+    time.sleep(2)
+    print(5, player2.get_relative_position())
+    player2.set_relative_position(0)
+    player2.play()
+    time.sleep(2)
     exit(0)

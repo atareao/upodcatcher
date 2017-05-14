@@ -59,6 +59,7 @@ APPDATA = APP + '.data'
 APPNAME = 'uPodcatcher'
 CONFIG_DIR = os.path.join(os.path.expanduser('~'), '.config')
 CONFIG_APP_DIR = os.path.join(CONFIG_DIR, APP)
+PODCASTS_DIR = os.path.join(CONFIG_APP_DIR, 'podcasts')
 CONFIG_FILE = os.path.join(CONFIG_APP_DIR, APPCONF)
 DATA_FILE = os.path.join(CONFIG_APP_DIR, APPDATA)
 AUTOSTART_DIR = os.path.join(CONFIG_DIR, 'autostart')
@@ -66,6 +67,8 @@ FILE_AUTO_START = os.path.join(AUTOSTART_DIR,
                                'upodocatcher-autostart.desktop')
 if not os.path.exists(CONFIG_APP_DIR):
     os.makedirs(CONFIG_APP_DIR)
+if not os.path.exists(PODCASTS_DIR):
+    os.makedirs(PODCASTS_DIR)
 
 print(os.path.dirname(os.path.abspath(__file__)))
 
@@ -80,21 +83,24 @@ if is_package():
     SOUNDIR = os.path.join(APPDIR, 'sounds')
     CHANGELOG = os.path.join(APPDIR, 'changelog')
     FILE_AUTO_START_ORIG = os.path.join(APPDIR,
-                                        'upodocatcher-autostart.desktop')
+                                        'upodcatcher-autostart.desktop')
 else:
     ROOTDIR = os.path.dirname(__file__)
     LANGDIR = os.path.join(ROOTDIR, 'template1')
     APPDIR = os.path.join(ROOTDIR, APP)
-    DATABASEDIR = os.path.normpath(os.path.join(ROOTDIR, '../data'))
+    DATADIR = os.path.normpath(os.path.join(ROOTDIR, '../data'))
     ICONDIR = os.path.normpath(os.path.join(ROOTDIR, '../data/icons'))
     SOCIALDIR = os.path.normpath(os.path.join(ROOTDIR, '../data/social'))
     SOUNDIR = os.path.normpath(os.path.join(ROOTDIR, '../data/sounds'))
     DEBIANDIR = os.path.normpath(os.path.join(ROOTDIR, '../debian'))
     CHANGELOG = os.path.join(DEBIANDIR, 'changelog')
     FILE_AUTO_START_ORIG = os.path.join(os.path.normpath(os.path.join(
-        ROOTDIR, '../data')), 'upodocatcher-autostart.desktop')
-ICON = os.path.join(ICONDIR, 'upodocatcher.svg')
-DATABASE = os.path.join(DATABASEDIR, 'feeds.db')
+        ROOTDIR, '../data')), 'upodcatcher-autostart.desktop')
+UI_FILE = os.path.join(DATADIR, 'ui.xml')
+PLAY_ICON = os.path.join(ICONDIR, 'play.svg')
+PAUSE_ICON = os.path.join(ICONDIR, 'pause.svg')
+ICON = os.path.join(ICONDIR, 'upodcatcher.svg')
+DATABASE = os.path.join(DATADIR, 'feeds.db')
 
 '''
 f = open(CHANGELOG, 'r')
