@@ -48,8 +48,9 @@ from player import Player
 from downloader import Downloader
 
 
-PLAY = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PLAY_ICON, 50, 50)
-PAUSE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PAUSE_ICON, 50, 50)
+PLAY = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PLAY_ICON, 32, 32)
+PAUSE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PAUSE_ICON, 32, 32)
+DOWNLOAD = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.DOWNLOAD_ICON, 32, 32)
 
 
 def get_pixbuf_from_base64string(base64string):
@@ -64,13 +65,12 @@ def get_pixbuf_from_base64string(base64string):
 class ListBoxRowWithData(Gtk.ListBoxRow):
     def __init__(self, data):
         super(Gtk.ListBoxRow, self).__init__()
-        self.data = data
         self.is_playing = False
+        self.is_downloading = False
         grid = Gtk.Grid()
         self.add(grid)
 
-        pixbuf = get_pixbuf_from_base64string(data[2])
-        self.image = Gtk.Image().new_from_pixbuf(pixbuf)
+        self.image = Gtk.Image()
         self.image.set_margin_top(5)
         self.image.set_margin_bottom(5)
         self.image.set_margin_left(5)
@@ -79,22 +79,20 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
 
         self.label1 = Gtk.Label()
         self.label1.set_margin_top(5)
-        self.label1.set_markup(
-            '<big><b>{0}</b></big>'.format(data[1]))
         self.label1.set_alignment(0, 0.5)
         grid.attach(self.label1, 5, 0, 1, 1)
 
-        self.label2 = Gtk.Label(data[5])
+        self.label2 = Gtk.Label()
         self.label2.set_valign(Gtk.Align.FILL)
         self.label2.set_line_wrap(True)
         self.label2.set_alignment(0, 0.5)
         grid.attach(self.label2, 5, 1, 1, 2)
 
-        self.label3 = Gtk.Label('00:00:00')
+        self.label3 = Gtk.Label()
         self.label3.set_alignment(0, 0.5)
         grid.attach(self.label3, 5, 3, 1, 1)
 
-        self.label4 = Gtk.Label('00:00:00')
+        self.label4 = Gtk.Label()
         self.label4.set_alignment(0, 0.5)
         self.label4.set_margin_right(5)
         self.label4.set_halign(Gtk.Align.END)
@@ -107,12 +105,21 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         self.progressbar.set_margin_right(5)
         grid.attach(self.progressbar, 5, 4, 2, 1)
 
-        self.play_pause = Gtk.Image().new_from_pixbuf(PLAY)
+        self.play_pause = Gtk.Image()
         self.play_pause.set_margin_top(5)
         self.play_pause.set_margin_bottom(5)
         self.play_pause.set_margin_left(5)
         self.play_pause.set_margin_right(5)
         grid.attach(self.play_pause, 8, 0, 5, 5)
+
+        self.set_data(data)
+
+    def set_downloading(self, downloading):
+        self.downloading = downloading
+        if downloading is True:
+            self.play_pause.set_from_pixbuf(DOWNLOAD)
+        else:
+            self.play_pause.set_from_pixbuf(PLAY)
 
     def set_playing(self, playing):
         print(playing)
@@ -124,6 +131,22 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
 
     def __eq__(self, other):
         return self.data[0] == other.data[0]
+
+    def set_data(self, data):
+        self.data = data
+        self.image.set_from_pixbuf(get_pixbuf_from_base64string(data[2]))
+        self.label1.set_markup(
+            '<big><b>{0}</b></big>'.format(data[1]))
+        self.label2.set_text(data[5])
+        self.label3.set_text('00:00:00')
+        self.label4.set_text('00:00:00')
+        if data[9] is None:
+            self.play_pause.set_from_pixbuf(DOWNLOAD)
+        else:
+            if os.path.exists(os.path.join(comun.DATADIR, data[9])):
+                self.play_pause.set_from_pixbuf(PLAY)
+            else:
+                self.play_pause.set_from_pixbuf(DOWNLOAD)
 
 
 class MainApplication(Gtk.Application):
@@ -427,67 +450,59 @@ class MainWindow(Gtk.ApplicationWindow):
         self.show_all()
 
     def on_row_activated(self, widget, row):
-        url = row.data[6]
-        ext = url.split('.')[-1]
-        filename = os.path.join(comun.PODCASTS_DIR, 'podcast_{0}.{1}'.format(
-            row.data[0], ext))
-        if os.path.exists(filename):
-            if self.selected_row is not None:
-                if self.selected_row == row:
-                    if self.selected_row.is_playing:
-                        self.player.pause()
-                        self.selected_row.set_playing(False)
+        exists = False
+        if row.data[9] is not None:
+            filename = os.path.join(comun.PODCASTS_DIR, row.data[9])
+            if os.path.exists(filename):
+                exists = True
+                if self.selected_row is not None:
+                    if self.selected_row == row:
+                        if self.selected_row.is_playing:
+                            self.player.pause()
+                            self.selected_row.set_playing(False)
+                        else:
+                            self.player.play()
+                            self.selected_row.set_playing(True)
                     else:
-                        self.player.play()
-                        self.selected_row.set_playing(True)
+                        if self.selected_row.is_playing:
+                            self.player.pause()
+                            self.selected_row.set_playing(False)
+                            self.player.set_sound(filename)
+                            self.player.play()
+                            row.set_playing(True)
+                            self.selected_row = row
                 else:
-                    if self.selected_row.is_playing:
-                        self.player.pause()
-                        self.selected_row.set_playing(False)
-                        self.player.set_sound(filename)
-                        self.player.play()
-                        row.set_playing(True)
-                        self.selected_row = row
-            else:
-                self.selected_row = row
-                self.player.set_sound(filename)
-                self.player.play()
-                self.selected_row.set_playing(True)
-        else:
-            downloader = Downloader(url, filename)
-            downloader.connect('ended', self.on_downloader_ended, filename, row)
-            downloader.connect('failed', self.on_downloader_failed, filename)
-            print('started')
-            downloader.start()
+                    self.selected_row = row
+                    self.player.set_sound(filename)
+                    self.player.play()
+                    self.selected_row.set_playing(True)
+        if exists is False:
+            url = row.data[6]
+            ext = url.split('.')[-1]
+            filename = os.path.join(comun.PODCASTS_DIR,
+                                    'podcast_{0}.{1}'.format(row.data[0], ext))
+            if row.is_downloading is False:
+                downloader = Downloader(url, filename)
+                downloader.connect('ended', self.on_downloader_ended,
+                                   row, filename)
+                downloader.connect('failed', self.on_downloader_failed,
+                                   row, filename)
+                print('started')
+                downloader.start()
+                row.set_downloading(True)
 
-    def on_downloader_failed(self, widget, filename):
+    def on_downloader_failed(self, widget, row, filename):
         print('failed')
         if os.path.exists(filename):
             os.remove(filename)
+        row.set_downloading(True)
+        row.is_downloading = False
 
-    def on_downloader_ended(self, widget, filename, row):
-        print('ended', widget, filename, row)
-        if self.selected_row is not None:
-            if self.selected_row == row:
-                if self.selected_row.is_playing:
-                    self.player.pause()
-                    self.selected_row.set_playing(False)
-                else:
-                    self.player.play()
-                    self.selected_row.set_playing(True)
-            else:
-                if self.selected_row.is_playing:
-                    self.player.pause()
-                    self.selected_row.set_playing(False)
-                    self.player.set_sound(filename)
-                    self.player.play()
-                    row.set_playing(True)
-                    self.selected_row = row
-        else:
-            self.selected_row = row
-            self.player.set_sound(filename)
-            self.player.play()
-            self.selected_row.set_playing(True)
+    def on_downloader_ended(self, widget, row, filename):
+        self.db.set_track_downloaded(row.data[0], filename.split('/')[-1])
+        ans = self.db.get_track(row.data[0])
+        if ans is not None:
+            row.set_data(ans)
 
     def init_headerbar(self):
         icontheme = Gtk.IconTheme.get_default()

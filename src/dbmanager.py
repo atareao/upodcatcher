@@ -57,15 +57,17 @@ CREATE TABLE if not exists TRACKS (
     DATE TEXT NOT NULL,
     TITLE TEXT NOT NULL,
     URL TEXT UNIQUE NOT NULL,
-    VIEWED BOOLEAN NOT NULL DEFAULT FALSE,
-    DOWNLOADED BOOLEAN NOT NULL DEFAULT FALSE,
+    DURATION INTEGER NOT NULL DEFAULT 0,
+    POSITION INTEGER NOT NULL DEFAULT 0,
+    FILENAME TEXT,
     NORDER INTEGER);
 CREATE TABLE if not exists LIST (
     ID INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
     LIST_ID INTEGER REFERENCES LISTS (ID) ON DELETE CASCADE,
     TRACK_ID INTEGER REFERENCES TRACKS (ID) ON DELETE CASCADE,
-    VIEWED BOOLEAN DEFAULT FALSE,
-    NORDER INTEGER);
+    POSITION INTEGER NOT NULL DEFAULT 0,
+    NORDER INTEGER,
+    UNIQUE (LIST_ID, TRACK_ID) ON CONFLICT IGNORE);
 CREATE VIEW if not exists TRACKS_VIEW AS
     SELECT TRACKS.ID,
            FEEDS.TITLE AS PODCAST_NAME,
@@ -74,8 +76,9 @@ CREATE VIEW if not exists TRACKS_VIEW AS
            TRACKS.DATE,
            TRACKS.TITLE,
            TRACKS.URL,
-           TRACKS.VIEWED,
-           TRACKS.DOWNLOADED,
+           TRACKS.DURATION,
+           TRACKS.POSITION,
+           TRACKS.FILENAME,
            TRACKS.NORDER
       FROM TRACKS
            LEFT JOIN
@@ -110,7 +113,7 @@ class DBManager():
     def __init__(self, restart=False):
         if not os.path.exists(comun.DATADIR):
             os.makedirs(comun.DATADIR)
-        self.db = sqlite3.connect(comun.DATABASE)
+        self.db = sqlite3.connect(comun.DATABASE, check_same_thread=False)
         cursor = self.db.cursor()
         if restart is True:
             cursor.executescript(SQLStartString)
@@ -140,6 +143,7 @@ class DBManager():
                 return cursor.lastrowid
             except sqlite3.IntegrityError as e:
                 print('---', e, '---')
+            cursor.close()
         return None
 
     def add_tracks(self, url):
@@ -161,48 +165,78 @@ class DBManager():
                 date = parse(entry.published).strftime('%Y%m%dT%H%M%S')
                 title = entry.title
                 url = entry.enclosures[0]['url']
-                viewed = False
-                downloaded = False
+                filename = None
+                duration = 0
+                position = 0
                 try:
                     cursor.execute('''INSERT INTO TRACKS(FEED_ID, IDEN, DATE,
- TITLE, URL, VIEWED, DOWNLOADED, NORDER) VALUES(?, ?, ?, ?, ?, ?, ?, ?)''',
-                                   (feed_id, iden, date, title, url, viewed,
-                                    downloaded, norder))
+ TITLE, URL, DURATION, POSITION, FILENAME, NORDER) VALUES(?, ?, ?, ?, ?, ?, ?,
+ ?, ?)''',
+                                   (feed_id, iden, date, title, url, duration,
+                                    position, filename, norder))
                     track_id = cursor.lastrowid
                     cursor.execute('''INSERT INTO LIST(LIST_ID, TRACK_ID,
- VIEWED, NORDER) VALUES(?, ?, ?, ?)''', (1, track_id, viewed, norder2))
+ POSITION, NORDER) VALUES(?, ?, ?, ?)''', (1, track_id, position, norder2))
                 except Exception as e:
                     print('---', e, '---')
             self.db.commit()
+            cursor.close()
             return cursor.lastrowid
         return None
 
-    def set_track_downloaded(self, id, downloaded=True):
+    def set_track_position(self, id, position):
         cursor = self.db.cursor()
         try:
-            cursor.execute('''UPDATE TRACKS SET DOWNLOADED=? WHERE ID=?''',
-                           (downloaded, id))
+            cursor.execute('''UPDATE TRACKS SET POSITION=? WHERE ID=?''',
+                           (position, id))
             self.db.commit()
         except Exception as e:
             print('---', e, '---')
+        cursor.close()
+
+    def set_track_position_in_list(self, id, list_id, position):
+        cursor = self.db.cursor()
+        try:
+            cursor.execute('''UPDATE LIST SET POSITION=? WHERE LIST_ID=? AND ID=?''',
+                           (position, list_id, id))
+            self.db.commit()
+        except Exception as e:
+            print('---', e, '---')
+        cursor.close()
+
+    def set_track_downloaded(self, id, filename):
+        cursor = self.db.cursor()
+        try:
+            cursor.execute('''UPDATE TRACKS SET FILENAME=? WHERE ID=?''',
+                           (filename, id))
+            self.db.commit()
+        except Exception as e:
+            print('---', e, '---')
+        cursor.close()
+
+    def set_track_no_downloaded(self, id):
+        self.set_track_downloaded(id, None)
 
     def is_track_downloaded(self, id):
         cursor = self.db.cursor()
         try:
-            cursor.execute('''SELECT DOWNLOADED FROM TRACKS WHERE ID=?''',
+            cursor.execute('''SELECT FILENAME FROM TRACKS WHERE ID=?''',
                            (id,))
             self.db.commit()
             ans = cursor.fetchone()
             if ans is not None:
-                return ans[0] == 1
+                cursor.close()
+                return (ans[0] is not None)
         except Exception as e:
             print('---', e, '---')
+        cursor.close()
         return False
 
     def get_max_norder(self, table):
         cursor = self.db.cursor()
         cursor.execute('''SELECT max(NORDER) FROM {0}'''.format(table))
         ans = cursor.fetchone()[0]
+        cursor.close()
         if ans is None:
             return 0
         return ans
@@ -212,6 +246,7 @@ class DBManager():
         cursor.execute('''SELECT max(NORDER) FROM LIST WHERE LIST_ID=?''',
                        (list_id,))
         ans = cursor.fetchone()[0]
+        cursor.close()
         if ans is None:
             return 0
         return ans
@@ -224,19 +259,12 @@ class DBManager():
             cursor.execute('''INSERT INTO LISTS(NAME, NORDER) VALUES(?, ?)''',
                            (listname, norder))
             self.db.commit()
+            cursor.close()
             return cursor.lastrowid
         except Exception as e:
             print('---', e, '---')
+        cursor.close()
         return None
-
-    def set_track_viewed(self, id, viewed=True):
-        cursor = self.db.cursor()
-        try:
-            cursor.execute('''UPDATE LIST SET VIEWED=? WHERE ID=?''',
-                           (viewed, id))
-            self.db.commit()
-        except Exception as e:
-            print('---', e, '---')
 
     def sort_list(self, elements):
         cursor = self.db.cursor()
@@ -248,28 +276,32 @@ class DBManager():
             except Exception as e:
                 print('---', e, '---')
         self.db.commit()
+        cursor.close()
 
     def add_track_to_list(self, list_id, track_id):
-        norder = self.get_max_norder(list_id)
+        norder = self.get_max_norder_in_list(list_id)
         cursor = self.db.cursor()
         try:
             norder += 1
-            cursor.execute('''INSERT INTO LIST(LIST_ID, TRACK_ID, VIEWED,
+            cursor.execute('''INSERT INTO LIST(LIST_ID, TRACK_ID, POSITION,
 NORDER) VALUES(?, ?, ?, ?)''', (list_id, track_id, False, norder))
             self.db.commit()
+            cursor.close()
             return cursor.lastrowid
         except Exception as e:
             print('---', e, '---')
+        cursor.close()
         return None
 
     def removed_viewed_from_list(self, list_id):
         cursor = self.db.cursor()
         try:
-            cursor.execute('''DELETE FROM LIST WHERE LIST_ID=? AND VIEWED=?''',
-                           (list_id, True))
+            cursor.execute('''DELETE FROM LIST WHERE LIST_ID=? AND POSITION=?''',
+                           (list_id, 100))
             self.db.commit()
         except Exception as e:
             print('---', e, '---')
+        cursor.close()
 
     def get_feed_id(self, url):
         cursor = self.db.cursor()
@@ -277,45 +309,72 @@ NORDER) VALUES(?, ?, ?, ?)''', (list_id, track_id, False, norder))
             cursor.execute('SELECT ID FROM FEEDS WHERE URL=?', (url,))
             ans = cursor.fetchone()
             if ans is not None:
+                cursor.close()
                 return ans[0]
         except (sqlite3.IntegrityError, AttributeError) as e:
             print('---', e, '---')
+        cursor.close()
         return None
 
     def get_feeds(self):
         cursor = self.db.cursor()
         try:
             cursor.execute('SELECT * FROM FEEDS')
-            return cursor.fetchall()
+            ans = cursor.fetchall()
+            cursor.close()
+            return ans
         except (sqlite3.IntegrityError, AttributeError) as e:
             print('---', e, '---')
+        cursor.close()
         return []
 
     def get_tracks(self):
         cursor = self.db.cursor()
         try:
             cursor.execute('SELECT * FROM TRACKS_VIEW')
-            return cursor.fetchall()
+            ans = cursor.fetchall()
+            cursor.close()
+            return ans
         except (sqlite3.IntegrityError, AttributeError) as e:
             print('---', e, '---')
+        cursor.close()
         return []
+
+    def get_track(self, id):
+        cursor = self.db.cursor()
+        try:
+            cursor.execute('SELECT * FROM TRACKS_VIEW WHERE ID=?', (id,))
+            ans = cursor.fetchone()
+            cursor.close()
+            return ans
+        except (sqlite3.IntegrityError, AttributeError) as e:
+            print('---', e, '---')
+        cursor.close()
+        return None
 
 
 if __name__ == '__main__':
-    create = False
+    create = True
     dbmanager = DBManager(create)
     if create is False:
         print(dbmanager.get_feeds())
         print(dbmanager.get_tracks())
     else:
+        '''
         dbmanager.add_feed('http://feeds.feedburner.com/ugeek')
+        dbmanager.add_feed('http://www.ivoox.com/salmorejo-geek_fg_f1206500_filtro_1.xml')
         print(dbmanager.get_feed_id('http://feeds.feedburner.com/ugeek'))
         dbmanager.add_tracks('http://feeds.feedburner.com/ugeek')
+        dbmanager.add_tracks('http://www.ivoox.com/salmorejo-geek_fg_f1206500_filtro_1.xml')
         dbmanager.add_list('Recent')
-        dbmanager.set_track_downloaded(45, True)
+        '''
+        dbmanager.set_track_downloaded(45, 'test')
         print(dbmanager.is_track_downloaded(45))
         print(dbmanager.is_track_downloaded(44))
-        print(dbmanager.set_track_viewed(25))
+        print(dbmanager.set_track_position(25, 50))
+        print(dbmanager.set_track_position(30, 100))
+        dbmanager.add_track_to_list(1, 44)
+        dbmanager.set_track_position_in_list(44, 1, 100)
         dbmanager.removed_viewed_from_list(1)
         sortedlist = [[1, 2], [2, 1], [3, 5]]
         dbmanager.sort_list(sortedlist)

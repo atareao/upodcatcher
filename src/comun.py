@@ -99,6 +99,7 @@ else:
 UI_FILE = os.path.join(DATADIR, 'ui.xml')
 PLAY_ICON = os.path.join(ICONDIR, 'play.svg')
 PAUSE_ICON = os.path.join(ICONDIR, 'pause.svg')
+DOWNLOAD_ICON = os.path.join(ICONDIR, 'download.svg')
 ICON = os.path.join(ICONDIR, 'upodcatcher.svg')
 DATABASE = os.path.join(DATADIR, 'feeds.db')
 

@@ -35,7 +35,6 @@ from gi.repository import Gtk
 from gi.repository import GLib
 from gi.repository import GObject
 from dbus.mainloop.glib import DBusGMainLoop
-import threading
 from datetime import datetime
 from datetime import timedelta
 from enum import Enum
@@ -72,7 +71,6 @@ class Player(GObject.GObject):
         self.status = Status.STOPPED
         self.sound_menu = SoundMenuControls('uPodCatcher')
         self.sound = None
-        self.thread = None
         self.player = Gst.ElementFactory.make("playbin", "player")
         self.player.connect("about-to-finish", self.on_player_finished)
         bus = self.player.get_bus()
@@ -156,25 +154,18 @@ class Player(GObject.GObject):
     def set_sound(self, sound):
         self.sound = sound
 
-    def __play(self):
-        if self.sound is not None:
-            print('---', self.sound, '---')
-            self.player.set_property('uri', 'file://' + self.sound)
-            self.player.set_state(Gst.State.PLAYING)
-            self.status = Status.PLAYING
-            self.emit('started', self.get_relative_position())
-            self.sound_menu.signal_playing()
-
     def play(self):
         if self.status is Status.PAUSED:
             self.player.set_state(Gst.State.PLAYING)
             self.status = Status.PLAYING
             self.emit('started', self.get_relative_position())
             self.sound_menu.signal_playing()
-        elif self.status is Status.STOPPED:
-            #self.thread = threading.Thread(target=self.__play, daemon=True)
-            #self.thread.start()
-            self.__play()
+        elif self.status is Status.STOPPED and self.sound is not None:
+            self.player.set_property('uri', 'file://' + self.sound)
+            self.player.set_state(Gst.State.PLAYING)
+            self.status = Status.PLAYING
+            self.emit('started', self.get_relative_position())
+            self.sound_menu.signal_playing()
 
     def stop(self):
         if self.status is not Status.STOPPED:
