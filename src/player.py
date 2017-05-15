@@ -34,12 +34,10 @@ from gi.repository import Gst
 from gi.repository import Gtk
 from gi.repository import GLib
 from gi.repository import GObject
-from dbus.mainloop.glib import DBusGMainLoop
 from datetime import datetime
 from datetime import timedelta
 from enum import Enum
 import time
-from sound_menu import SoundMenuControls
 
 
 def sleep(milliseconds=1000):
@@ -65,23 +63,15 @@ class Player(GObject.GObject):
 
     def __init__(self):
         GObject.GObject.__init__(self)
-        DBusGMainLoop(set_as_default=True)
         Gst.init_check(None)
         self.IS_GST010 = Gst.version()[0] == 0
         self.status = Status.STOPPED
-        self.sound_menu = SoundMenuControls('uPodCatcher')
         self.sound = None
         self.player = Gst.ElementFactory.make("playbin", "player")
         self.player.connect("about-to-finish", self.on_player_finished)
         bus = self.player.get_bus()
         bus.connect("message", self.on_player_message)
         # Overwrite libraty methods
-        self.sound_menu._sound_menu_is_playing = self._sound_menu_is_playing
-        self.sound_menu._sound_menu_play = self._sound_menu_play
-        self.sound_menu._sound_menu_pause = self._sound_menu_pause
-        self.sound_menu._sound_menu_next = self._sound_menu_next
-        self.sound_menu._sound_menu_previous = self._sound_menu_previous
-        self.sound_menu._sound_menu_raise = self._sound_menu_raise
 
     def _sound_menu_is_playing(self):
         """Called in the first click"""
@@ -91,7 +81,6 @@ class Player(GObject.GObject):
         """Play"""
         self.status = Status.PLAYING
         self.is_playing = True  # Need to overwrite
-        self.sound_menu.song_changed('', '', 'Title of the song', None) #Icon)
         self.play()
 
     def _sound_menu_pause(self):

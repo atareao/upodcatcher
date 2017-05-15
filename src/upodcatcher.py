@@ -46,6 +46,9 @@ from comun import _
 from dbmanager import DBManager
 from player import Player
 from downloader import Downloader
+from sound_menu import SoundMenuControls
+from dbus.mainloop.glib import DBusGMainLoop
+from player import Status
 
 
 PLAY = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PLAY_ICON, 32, 32)
@@ -374,8 +377,20 @@ class MainWindow(Gtk.ApplicationWindow):
         self.clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         # Vertical box. Contains menu and PaneView
         vbox = Gtk.VBox(False, 2)
-        self.selected_row = None
+        self.previous_row = None
+        self.current_row = None
+
         self.player = Player()
+
+        DBusGMainLoop(set_as_default=True)
+        self.sound_menu = SoundMenuControls('uPodcatcher')
+        self.sound_menu._sound_menu_is_playing = self._sound_menu_is_playing
+        self.sound_menu._sound_menu_play = self._sound_menu_play
+        self.sound_menu._sound_menu_pause = self._sound_menu_pause
+        self.sound_menu._sound_menu_next = self._sound_menu_next
+        self.sound_menu._sound_menu_previous = self._sound_menu_previous
+        self.sound_menu._sound_menu_raise = self._sound_menu_raise
+
         self.add(vbox)
         #
 
@@ -427,7 +442,8 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.trackview = Gtk.ListBox()
         self.trackview.connect('row-activated', self.on_row_activated)
-        self.trackview.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.trackview.connect('row-selected', self.on_row_selected)
+        self.trackview.set_selection_mode(Gtk.SelectionMode.SINGLE)
         scrolledwindow.add(self.trackview)
 
         # StatusBar
@@ -449,33 +465,74 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.show_all()
 
+    def _sound_menu_is_playing(self):
+        return self.player.status == Status.PLAYING
+
+    def _sound_menu_play(self):
+        """Play"""
+        # self.is_playing = True  # Need to overwrite
+        self.player.play()
+
+    def _sound_menu_pause(self):
+        """Pause"""
+        # self.is_playing = False  # Need to overwrite
+        self.player.pause()
+
+    def _sound_menu_next(self):
+        """Next"""
+        index = self.current_row.get_index()
+        index += 1
+        if index > len(self.trackview.get_children()) - 1:
+            index = 0
+        current_row = self.trackview.get_row_at_index(index)
+        self.trackview.select_row(current_row)
+
+    def _sound_menu_previous(self):
+        """Previous"""
+        index = self.current_row.get_index()
+        index -= 1
+        if index < 0:
+            index = len(self.trackview.get_children()) - 1
+        current_row = self.trackview.get_row_at_index(index)
+        self.trackview.select_row(current_row)
+
+    def _sound_menu_raise(self):
+        """Click on player"""
+        self.win_preferences.show()
+
+    def on_row_selected(self, widget, row):
+        self.previous_row = self.current_row
+        self.current_row = row
+
     def on_row_activated(self, widget, row):
+        print('row_activated', row.get_index())
         exists = False
         if row.data[9] is not None:
             filename = os.path.join(comun.PODCASTS_DIR, row.data[9])
             if os.path.exists(filename):
                 exists = True
-                if self.selected_row is not None:
-                    if self.selected_row == row:
-                        if self.selected_row.is_playing:
+                if self.current_row is not None:
+                    if self.current_row == row:
+                        if self.current_row.is_playing:
                             self.player.pause()
-                            self.selected_row.set_playing(False)
+                            self.current_row.set_playing(False)
                         else:
                             self.player.play()
-                            self.selected_row.set_playing(True)
+                            self.sound_menu.song_changed('', '', 'Title of the song', None) #Icon)
+                            self.current_row.set_playing(True)
                     else:
-                        if self.selected_row.is_playing:
+                        if self.current_row.is_playing:
                             self.player.pause()
-                            self.selected_row.set_playing(False)
+                            self.current_row.set_playing(False)
                             self.player.set_sound(filename)
                             self.player.play()
                             row.set_playing(True)
-                            self.selected_row = row
+                            self.current_row = row
                 else:
-                    self.selected_row = row
+                    self.current_row = row
                     self.player.set_sound(filename)
                     self.player.play()
-                    self.selected_row.set_playing(True)
+                    self.current_row.set_playing(True)
         if exists is False:
             url = row.data[6]
             ext = url.split('.')[-1]
