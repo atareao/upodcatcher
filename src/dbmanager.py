@@ -30,13 +30,15 @@ import os
 import base64
 from PIL import Image
 from dateutil.parser import parse
+from upod_classes import Feed, Track
 
 SQLStartString = '''
 DROP TABLE if exists FEEDS;
 DROP TABLE if exists LISTS;
 DROP TABLE if exists TRACKS;
 DROP TABLE if exists LIST;
-DROP VIEW if exists TRACKS_VIEW;
+DROP VIEW if exists TRACKS_FEED_VIEW;
+DROP VIEW if exists TRACKS_LIST_VIEW;
 '''
 
 SQLString = '''
@@ -68,23 +70,48 @@ CREATE TABLE if not exists LIST (
     POSITION INTEGER NOT NULL DEFAULT 0,
     NORDER INTEGER,
     UNIQUE (LIST_ID, TRACK_ID) ON CONFLICT IGNORE);
-CREATE VIEW if not exists TRACKS_VIEW AS
-    SELECT TRACKS.ID,
-           FEEDS.TITLE AS PODCAST_NAME,
-           FEEDS.IMAGE AS PODCAST_IMAGE,
-           TRACKS.IDEN,
-           TRACKS.DATE,
-           TRACKS.TITLE,
-           TRACKS.URL,
-           TRACKS.DURATION,
-           TRACKS.POSITION,
-           TRACKS.FILENAME,
-           TRACKS.NORDER
+
+CREATE VIEW if not exists TRACKS_FEED_VIEW AS
+    SELECT
+        TRACKS.ID,
+        FEEDS.ID as FEED_ID,
+        TRACKS.IDEN,
+        TRACKS.DATE,
+        TRACKS.TITLE,
+        TRACKS.URL,
+        TRACKS.DURATION,
+        TRACKS.POSITION,
+        TRACKS.FILENAME,
+        TRACKS.NORDER,
+        FEEDS.TITLE AS PODCAST_NAME,
+        FEEDS.IMAGE AS PODCAST_IMAGE
       FROM TRACKS
-           LEFT JOIN
-           FEEDS
-     WHERE TRACKS.FEED_ID = FEEDS.ID;
-INSERT OR IGNORE INTO LISTS (NAME, NORDER) VALUES ('Recent', 1);
+      LEFT JOIN FEEDS ON TRACKS.FEED_ID = FEEDS.ID
+      ORDER BY TRACKS.NORDER;
+
+CREATE VIEW if not exists TRACKS_LIST_VIEW AS
+    SELECT
+        TRACKS.ID,
+        TRACKS.FEED_ID,
+        TRACKS.IDEN,
+        TRACKS.DATE,
+        TRACKS.TITLE,
+        TRACKS.URL,
+        TRACKS.DURATION,
+        LIST.POSITION,
+        TRACKS.FILENAME,
+        LIST.NORDER,
+        FEEDS.TITLE AS PODCAST_NAME,
+        FEEDS.IMAGE AS PODCAST_IMAGE,
+        LIST.LIST_ID AS LIST_ID
+    FROM LIST
+    LEFT JOIN LISTS ON LIST.LIST_ID = LISTS.ID
+    LEFT JOIN TRACKS ON LIST.TRACK_ID = TRACKS.ID
+    LEFT JOIN FEEDS ON TRACKS.FEED_ID = FEEDS.ID
+    ORDER BY LIST.NORDER;
+
+
+INSERT OR IGNORE INTO LISTS (NAME, NORDER) VALUES ('All', 1);
 '''
 
 
@@ -146,10 +173,12 @@ class DBManager():
             cursor.close()
         return None
 
-    def add_tracks(self, url):
-        feed_id = self.get_feed_id(url)
-        if feed_id is None:
+    def add_tracks(self, feed_id):
+        feed = self.get_feed(feed_id)
+        if feed is None:
             return
+        url = feed['url']
+        print('---', feed, '---')
         r = requests.get(url, verify=False)
         if r.status_code == 200:
             d = feedparser.parse(r.text)
@@ -197,8 +226,9 @@ class DBManager():
     def set_track_position_in_list(self, id, list_id, position):
         cursor = self.db.cursor()
         try:
-            cursor.execute('''UPDATE LIST SET POSITION=? WHERE LIST_ID=? AND ID=?''',
-                           (position, list_id, id))
+            cursor.execute(
+                '''UPDATE LIST SET POSITION=? WHERE LIST_ID=? AND ID=?''',
+                (position, list_id, id))
             self.db.commit()
         except Exception as e:
             print('---', e, '---')
@@ -296,8 +326,9 @@ NORDER) VALUES(?, ?, ?, ?)''', (list_id, track_id, False, norder))
     def removed_viewed_from_list(self, list_id):
         cursor = self.db.cursor()
         try:
-            cursor.execute('''DELETE FROM LIST WHERE LIST_ID=? AND POSITION=?''',
-                           (list_id, 100))
+            cursor.execute(
+                '''DELETE FROM LIST WHERE LIST_ID=? AND POSITION=?''',
+                (list_id, 100))
             self.db.commit()
         except Exception as e:
             print('---', e, '---')
@@ -317,24 +348,91 @@ NORDER) VALUES(?, ?, ?, ?)''', (list_id, track_id, False, norder))
         return None
 
     def get_feeds(self):
+        ans = []
         cursor = self.db.cursor()
         try:
             cursor.execute('SELECT * FROM FEEDS')
-            ans = cursor.fetchall()
+            data = cursor.fetchall()
             cursor.close()
-            return ans
+            for element in data:
+                ans.append(Feed(element))
         except (sqlite3.IntegrityError, AttributeError) as e:
             print('---', e, '---')
         cursor.close()
-        return []
+        return ans
 
-    def get_tracks(self):
+    def get_tracks_from_list(self, list_id):
+        ans = []
         cursor = self.db.cursor()
         try:
-            cursor.execute('SELECT * FROM TRACKS_VIEW')
-            ans = cursor.fetchall()
+            cursor.execute('SELECT * FROM TRACKS_LIST_VIEW WHERE LIST_ID=?',
+                           (list_id,))
+            data = cursor.fetchall()
             cursor.close()
-            return ans
+            for element in data:
+                track = Track()
+                track.set_from_tracks_list_view(element)
+                ans.append(track)
+        except (sqlite3.IntegrityError, AttributeError) as e:
+            print('---', e, '---')
+        cursor.close()
+        return ans
+
+    def get_track_from_list(self, id):
+        cursor = self.db.cursor()
+        try:
+            cursor.execute('SELECT * FROM TRACKS_LIST_VIEW WHERE ID=?', (id,))
+            ans = cursor.fetchone()
+            cursor.close()
+            track = Track()
+            track.set_from_tracks_list_view(ans)
+            return track
+        except (sqlite3.IntegrityError, AttributeError) as e:
+            print('---', e, '---')
+        cursor.close()
+        return None
+
+    def get_tracks_from_feed(self, feed_id):
+        ans = []
+        cursor = self.db.cursor()
+        try:
+            cursor.execute('SELECT * FROM TRACKS_FEED_VIEW WHERE FEED_ID=?',
+                           (feed_id,))
+            data = cursor.fetchall()
+            cursor.close()
+            for element in data:
+                track = Track()
+                track.set_from_tracks_feed_view(element)
+                ans.append(track)
+        except (sqlite3.IntegrityError, AttributeError) as e:
+            print('---', e, '---')
+        cursor.close()
+        return ans
+
+    def get_track_from_feed(self, id):
+        cursor = self.db.cursor()
+        try:
+            cursor.execute('SELECT * FROM TRACKS_FEED_VIEW WHERE ID=?', (id,))
+            ans = cursor.fetchone()
+            cursor.close()
+            track = Track()
+            track.set_from_tracks_feed_view(ans)
+            return track
+        except (sqlite3.IntegrityError, AttributeError) as e:
+            print('---', e, '---')
+        cursor.close()
+        return None
+
+    def get_tracks(self):
+        ans = []
+        cursor = self.db.cursor()
+        try:
+            cursor.execute('SELECT * FROM TRACKS')
+            data = cursor.fetchall()
+            cursor.close()
+            cursor.close()
+            for element in data:
+                ans.append(Track(element))
         except (sqlite3.IntegrityError, AttributeError) as e:
             print('---', e, '---')
         cursor.close()
@@ -343,10 +441,22 @@ NORDER) VALUES(?, ?, ?, ?)''', (list_id, track_id, False, norder))
     def get_track(self, id):
         cursor = self.db.cursor()
         try:
-            cursor.execute('SELECT * FROM TRACKS_VIEW WHERE ID=?', (id,))
+            cursor.execute('SELECT * FROM TRACKS WHERE ID=?', (id,))
             ans = cursor.fetchone()
             cursor.close()
-            return ans
+            return Track(ans)
+        except (sqlite3.IntegrityError, AttributeError) as e:
+            print('---', e, '---')
+        cursor.close()
+        return None
+
+    def get_feed(self, id):
+        cursor = self.db.cursor()
+        try:
+            cursor.execute('SELECT * FROM FEEDS WHERE ID=?', (id,))
+            ans = cursor.fetchone()
+            cursor.close()
+            return Feed(ans)
         except (sqlite3.IntegrityError, AttributeError) as e:
             print('---', e, '---')
         cursor.close()
@@ -360,14 +470,13 @@ if __name__ == '__main__':
         print(dbmanager.get_feeds())
         print(dbmanager.get_tracks())
     else:
-        '''
         dbmanager.add_feed('http://feeds.feedburner.com/ugeek')
-        dbmanager.add_feed('http://www.ivoox.com/salmorejo-geek_fg_f1206500_filtro_1.xml')
-        print(dbmanager.get_feed_id('http://feeds.feedburner.com/ugeek'))
-        dbmanager.add_tracks('http://feeds.feedburner.com/ugeek')
-        dbmanager.add_tracks('http://www.ivoox.com/salmorejo-geek_fg_f1206500_filtro_1.xml')
+        dbmanager.add_feed(
+            'http://www.ivoox.com/salmorejo-geek_fg_f1206500_filtro_1.xml')
+        for feed in dbmanager.get_feeds():
+            dbmanager.add_tracks(feed['id'])
         dbmanager.add_list('Recent')
-        '''
+
         dbmanager.set_track_downloaded(45, 'test')
         print(dbmanager.is_track_downloaded(45))
         print(dbmanager.is_track_downloaded(44))

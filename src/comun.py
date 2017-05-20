@@ -60,6 +60,7 @@ APPNAME = 'uPodcatcher'
 CONFIG_DIR = os.path.join(os.path.expanduser('~'), '.config')
 CONFIG_APP_DIR = os.path.join(CONFIG_DIR, APP)
 PODCASTS_DIR = os.path.join(CONFIG_APP_DIR, 'podcasts')
+THUMBNAILS_DIR = os.path.join(CONFIG_APP_DIR, 'thumbnails')
 CONFIG_FILE = os.path.join(CONFIG_APP_DIR, APPCONF)
 DATA_FILE = os.path.join(CONFIG_APP_DIR, APPDATA)
 AUTOSTART_DIR = os.path.join(CONFIG_DIR, 'autostart')
@@ -69,8 +70,8 @@ if not os.path.exists(CONFIG_APP_DIR):
     os.makedirs(CONFIG_APP_DIR)
 if not os.path.exists(PODCASTS_DIR):
     os.makedirs(PODCASTS_DIR)
-
-print(os.path.dirname(os.path.abspath(__file__)))
+if not os.path.exists(THUMBNAILS_DIR):
+    os.makedirs(THUMBNAILS_DIR)
 
 if is_package():
     ROOTDIR = '/usr/share/'

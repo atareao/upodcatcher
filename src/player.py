@@ -73,53 +73,6 @@ class Player(GObject.GObject):
         bus.connect("message", self.on_player_message)
         # Overwrite libraty methods
 
-    def _sound_menu_is_playing(self):
-        """Called in the first click"""
-        return self.status == Status.PLAYING
-
-    def _sound_menu_play(self):
-        """Play"""
-        self.status = Status.PLAYING
-        self.is_playing = True  # Need to overwrite
-        self.play()
-
-    def _sound_menu_pause(self):
-        """Pause"""
-        print('***********************************************')
-        # self.status = Status.PAUSED
-        # self.is_playing = False  # Need to overwrite
-        self.pause()
-        # self.sound_menu.signal_paused()
-
-    def _sound_menu_next(self):
-        """Next"""
-        self._set_new_play('next')
-
-    def _sound_menu_previous(self):
-        """Previous"""
-        self._set_new_play('previous')
-
-    def _sound_menu_raise(self):
-        """Click on player"""
-        self.win_preferences.show()
-
-    def _set_new_play(self, what):
-        """Next or Previous"""
-        self.noise.refresh_all_ogg()
-        # Get Next/Previous
-        if what == 'next':
-            self.noise.set_next()
-        if what == 'previous':
-            self.noise.set_previous()
-        # From pause?
-        self.player.set_state(Gst.State.READY)
-        if not self.is_playing:
-            self.is_playing = True
-        # Set new sound
-        self.player.set_property('uri', self.noise.get_current_filename())
-        # Play
-        self._sound_menu_play()
-
     def emit(self, *args):
         GObject.GObject.emit(self, *args)
         GObject.idle_add(GObject.GObject.emit, self, *args)

@@ -358,6 +358,15 @@ Lorenzo Carbonell <lorenzo.carbonell.cerezo@gmail.com>\n')
                 "gtk-application-prefer-dark-theme", state)
 
 
+def get_thumbnail_filename_for_feed(feed_id, base64string):
+    thumbnail_filename = os.path.join(comun.THUMBNAILS_DIR,
+                                      'feed_{0}.png'.format(feed_id))
+    if not os.path.exists(thumbnail_filename):
+        pixbuf = get_pixbuf_from_base64string(base64string)
+        pixbuf.savev(thumbnail_filename, 'png', [], [])
+    return thumbnail_filename
+
+
 class MainWindow(Gtk.ApplicationWindow):
     __gsignals__ = {
         'text-changed': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE,
@@ -452,15 +461,19 @@ class MainWindow(Gtk.ApplicationWindow):
         #
         self.db = DBManager(False)
         for feed in self.db.get_feeds():
-            pixbuf = get_pixbuf_from_base64string(feed[3])
-            self.storefeeds.append([feed[0],
-                                    feed[1],
-                                    feed[2],
-                                    feed[3],
-                                    feed[4],
+            thumbnail = os.path.join(comun.THUMBNAILS_DIR,
+                                     'feed_{0}.png'.format(feed['id']))
+            if not os.path.exists(thumbnail):
+                pixbuf = get_pixbuf_from_base64string(feed['image'])
+                pixbuf.savev(thumbnail, 'png', [], [])
+            self.storefeeds.append([feed['id'],
+                                    feed['url'],
+                                    feed['title'],
+                                    feed['image'],
+                                    feed['norder'],
                                     pixbuf])
 
-        for track in self.db.get_tracks():
+        for index, track in enumerate(self.db.get_tracks()):
             self.trackview.add(ListBoxRowWithData(track))
 
         self.show_all()
@@ -485,6 +498,16 @@ class MainWindow(Gtk.ApplicationWindow):
         if index > len(self.trackview.get_children()) - 1:
             index = 0
         current_row = self.trackview.get_row_at_index(index)
+
+        artists = [current_row.data['feed_name']]
+        album = current_row.data['feed_name']
+        title = current_row.data['title']
+        feed_id = current_row.data['feed_id']
+        feed_image = current_row.data['feed_image']
+        album_art = get_thumbnail_filename_for_feed(feed_id, feed_image)
+        self.sound_menu.song_changed(artists, album, title, album_art)
+        self.sound_menu.signal_playing()
+
         self.trackview.select_row(current_row)
 
     def _sound_menu_previous(self):
@@ -494,6 +517,16 @@ class MainWindow(Gtk.ApplicationWindow):
         if index < 0:
             index = len(self.trackview.get_children()) - 1
         current_row = self.trackview.get_row_at_index(index)
+
+        artists = [current_row.data['feed_name']]
+        album = current_row.data['feed_name']
+        title = current_row.data['title']
+        feed_id = current_row.data['feed_id']
+        feed_image = current_row.data['feed_image']
+        album_art = get_thumbnail_filename_for_feed(feed_id, feed_image)
+        self.sound_menu.song_changed(artists, album, title, album_art)
+        self.sound_menu.signal_playing()
+
         self.trackview.select_row(current_row)
 
     def _sound_menu_raise(self):
