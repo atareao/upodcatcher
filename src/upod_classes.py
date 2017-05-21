@@ -130,7 +130,7 @@ class Track(Base):
         self['filename'] = data[8]
         self['norder'] = data[9]
 
-    def set_from_tracks_view(self, data):
+    def set_from_tracks_feed_view(self, data):
         self.set(data)
         self['feed_name'] = data[10]
         self['feed_image'] = data[11]

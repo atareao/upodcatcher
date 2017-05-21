@@ -40,6 +40,7 @@ from gi.repository import GObject
 from gi.repository import GdkPixbuf
 import webbrowser
 import os
+import time
 import base64
 import comun
 from comun import _
@@ -54,6 +55,31 @@ from player import Status
 PLAY = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PLAY_ICON, 32, 32)
 PAUSE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PAUSE_ICON, 32, 32)
 DOWNLOAD = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.DOWNLOAD_ICON, 32, 32)
+DOWNLOAD_ANIM = GdkPixbuf.PixbufAnimation.new_from_file(comun.DOWNLOAD_ANIM)
+BACKWARD = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.BACKWARD_ICON, 16, 16)
+STEP_BACKWARD = GdkPixbuf.Pixbuf.new_from_file_at_size(
+    comun.STEP_BACKWARD_ICON, 16, 16)
+FORWARD = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.FORWARD_ICON, 16, 16)
+STEP_FORWARD = GdkPixbuf.Pixbuf.new_from_file_at_size(
+    comun.STEP_FORWARD_ICON, 16, 16)
+LPLAY = GdkPixbuf.Pixbuf.new_from_file_at_size(
+    comun.LITTLE_PLAY_ICON, 16, 16)
+LPAUSE = GdkPixbuf.Pixbuf.new_from_file_at_size(
+    comun.LITTLE_PAUSE_ICON, 16, 16)
+
+
+def select_value_in_combo(combo, value):
+    model = combo.get_model()
+    for i, item in enumerate(model):
+        if value == item[0]:
+            combo.set_active(i)
+            return
+    combo.set_active(0)
+
+
+def get_selected_value_in_combo(combo):
+    model = combo.get_model()
+    return model.get_value(combo.get_active_iter(), 0)
 
 
 def get_pixbuf_from_base64string(base64string):
@@ -118,14 +144,20 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         self.set_data(data)
 
     def set_downloading(self, downloading):
-        self.downloading = downloading
+        self.is_downloading = downloading
         if downloading is True:
-            self.play_pause.set_from_pixbuf(DOWNLOAD)
+            self.play_pause.set_from_animation(DOWNLOAD_ANIM)
         else:
-            self.play_pause.set_from_pixbuf(PLAY)
+            if self.data['filename'] is None:
+                self.play_pause.set_from_pixbuf(DOWNLOAD)
+            else:
+                if os.path.exists(os.path.join(
+                        comun.PODCASTS_DIR, self.data['filename'])):
+                    self.play_pause.set_from_pixbuf(PLAY)
+                else:
+                    self.play_pause.set_from_pixbuf(DOWNLOAD)
 
     def set_playing(self, playing):
-        print(playing)
         self.is_playing = playing
         if playing is True:
             self.play_pause.set_from_pixbuf(PAUSE)
@@ -133,23 +165,33 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
             self.play_pause.set_from_pixbuf(PLAY)
 
     def __eq__(self, other):
-        return self.data[0] == other.data[0]
+        return self.data['id'] == other.data['id']
+
+    def set_duration(self, duration):
+        self.data['duration'] = duration
+        self.label4.set_text(time.strftime('%H:%M:%S', time.gmtime(
+            self.data['duration'])))
+
+    def set_position(self, position):
+        self.data['position'] = position
+        self.label3.set_text(time.strftime('%H:%M:%S', time.gmtime(
+            self.data['position'])))
+        if self.data['duration'] > 0:
+            fraction = float(position) / float(self.data['duration'])
+            self.progressbar.set_fraction(fraction)
 
     def set_data(self, data):
         self.data = data
-        self.image.set_from_pixbuf(get_pixbuf_from_base64string(data[2]))
+        self.image.set_from_pixbuf(get_pixbuf_from_base64string(
+            data['feed_image']))
         self.label1.set_markup(
-            '<big><b>{0}</b></big>'.format(data[1]))
-        self.label2.set_text(data[5])
-        self.label3.set_text('00:00:00')
-        self.label4.set_text('00:00:00')
-        if data[9] is None:
-            self.play_pause.set_from_pixbuf(DOWNLOAD)
-        else:
-            if os.path.exists(os.path.join(comun.DATADIR, data[9])):
-                self.play_pause.set_from_pixbuf(PLAY)
-            else:
-                self.play_pause.set_from_pixbuf(DOWNLOAD)
+            '<big><b>{0}</b></big>'.format(data['feed_name']))
+        self.label2.set_text(data['title'])
+        self.label3.set_text(time.strftime('%H:%M:%S', time.gmtime(
+            data['position'])))
+        self.label4.set_text(time.strftime('%H:%M:%S', time.gmtime(
+            data['duration'])))
+        self.set_downloading(False)
 
 
 class MainApplication(Gtk.Application):
@@ -276,7 +318,6 @@ crear-un-gif-animado-de-un-video-en-ubuntu-en-un-solo-clic/')))
         self.add_action(action_heading)
 
     def activate_radio(self, widget, action, parameter=None):
-        print('---', widget, action, parameter)
         self.win.menu['lists'].set_label(action.get_string())
         widget.set_state(action)
 
@@ -287,7 +328,6 @@ crear-un-gif-animado-de-un-video-en-ubuntu-en-un-solo-clic/')))
         print(action, state)
 
     def do_activate(self):
-        print('activate')
         self.win = MainWindow(self)
         self.add_window(self.win)
         self.win.show()
@@ -378,18 +418,20 @@ class MainWindow(Gtk.ApplicationWindow):
         Gtk.ApplicationWindow.__init__(self, application=app)
         self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
         self.set_icon_from_file(comun.ICON)
-        self.set_default_size(300, 600)
-        self.builder = Gtk.Builder()
-        self.builder.add_from_file(comun.UI_FILE)
+        self.set_default_size(600, 600)
+        # self.builder = Gtk.Builder()
+        # self.builder.add_from_file(comun.UI_FILE)
         # self.connect('delete-event', self.on_close_application)
         # self.connect('realize', self.on_activate_preview_or_html)
         self.clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         # Vertical box. Contains menu and PaneView
         vbox = Gtk.VBox(False, 2)
-        self.previous_row = None
         self.current_row = None
 
         self.player = Player()
+        self.player.connect('started', self.on_player_started)
+        self.player.connect('paused', self.on_player_paused)
+        self.player.connect('stopped', self.on_player_stopped)
 
         DBusGMainLoop(set_as_default=True)
         self.sound_menu = SoundMenuControls('uPodcatcher')
@@ -399,6 +441,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.sound_menu._sound_menu_next = self._sound_menu_next
         self.sound_menu._sound_menu_previous = self._sound_menu_previous
         self.sound_menu._sound_menu_raise = self._sound_menu_raise
+        self.sound_menu._sound_menu_stop = self._sound_menu_stop
 
         self.add(vbox)
         #
@@ -457,6 +500,52 @@ class MainWindow(Gtk.ApplicationWindow):
 
         # StatusBar
         self.statusbar = Gtk.Statusbar()
+
+        speed_store = Gtk.ListStore(float, str)
+        speed_store.append([0.5, '0.5x'])
+        speed_store.append([0.6, '0.6x'])
+        speed_store.append([0.7, '0.7x'])
+        speed_store.append([0.8, '0.8x'])
+        speed_store.append([0.9, '0.9x'])
+        speed_store.append([1.0, '1.0x'])
+        speed_store.append([1.1, '1.1x'])
+        speed_store.append([1.2, '1.2x'])
+        speed_store.append([1.3, '1.3x'])
+        speed_store.append([1.4, '1.4x'])
+        speed_store.append([1.5, '1.5x'])
+        speed_store.append([1.6, '1.6x'])
+        speed_store.append([1.7, '1.7x'])
+        speed_store.append([1.8, '1.8x'])
+        speed_store.append([1.9, '1.9x'])
+        speed_store.append([2.0, '2.0x'])
+        self.combo_speed = Gtk.ComboBox.new_with_model(speed_store)
+        cell1 = Gtk.CellRendererText()
+        self.combo_speed.pack_start(cell1, True)
+        self.combo_speed.add_attribute(cell1, 'text', 1)
+        self.combo_speed.set_active(5)
+        self.combo_speed.connect('changed', self.on_combo_speed_changed)
+
+        self.statusbar.pack_start(self.combo_speed, False, False, 0)
+        self.btn_step_backward = Gtk.Button.new()
+        self.btn_step_backward.add(Gtk.Image.new_from_pixbuf(STEP_BACKWARD))
+        self.btn_step_backward.connect('clicked', self._sound_menu_previous)
+        self.statusbar.pack_start(self.btn_step_backward, False, False, 0)
+        self.btn_backward = Gtk.Button.new()
+        self.btn_backward.add(Gtk.Image.new_from_pixbuf(BACKWARD))
+        self.statusbar.pack_start(self.btn_backward, False, False, 0)
+        self.btn_play_pause = Gtk.Button.new()
+        self.img_play_pause = Gtk.Image.new_from_pixbuf(LPLAY)
+        self.btn_play_pause.add(self.img_play_pause)
+        self.btn_play_pause.connect('clicked', self._sound_menu_play)
+        self.statusbar.pack_start(self.btn_play_pause, False, False, 0)
+        self.btn_forward = Gtk.Button.new()
+        self.btn_forward.add(Gtk.Image.new_from_pixbuf(FORWARD))
+        self.statusbar.pack_start(self.btn_forward, False, False, 0)
+        self.btn_step_forward = Gtk.Button.new()
+        self.btn_step_forward.add(Gtk.Image.new_from_pixbuf(STEP_FORWARD))
+        self.btn_step_forward.connect('clicked', self._sound_menu_next)
+        self.statusbar.pack_start(self.btn_step_forward, False, False, 0)
+
         vbox.pack_start(self.statusbar, False, False, 0)
         #
         self.db = DBManager(False)
@@ -466,133 +555,184 @@ class MainWindow(Gtk.ApplicationWindow):
             if not os.path.exists(thumbnail):
                 pixbuf = get_pixbuf_from_base64string(feed['image'])
                 pixbuf.savev(thumbnail, 'png', [], [])
+            '''
             self.storefeeds.append([feed['id'],
                                     feed['url'],
                                     feed['title'],
                                     feed['image'],
                                     feed['norder'],
                                     pixbuf])
+            '''
 
-        for index, track in enumerate(self.db.get_tracks()):
+        for index, track in enumerate(self.db.get_tracks_from_feed(1)):
             self.trackview.add(ListBoxRowWithData(track))
 
         self.show_all()
 
+    def on_combo_speed_changed(self, combo):
+        try:
+            value = get_selected_value_in_combo(combo)
+            self.player.set_speed(value)
+        except Exception as e:
+            print(e)
+
     def _sound_menu_is_playing(self):
         return self.player.status == Status.PLAYING
 
-    def _sound_menu_play(self):
+    def _sound_menu_play(self, *args):
         """Play"""
         # self.is_playing = True  # Need to overwrite
-        self.player.play()
+        if self.current_row is None:
+            self.current_row = self.trackview.get_row_at_index(0)
+            self.trackview.select_row(self.current_row)
+        self.on_row_activated(None, self.current_row)
 
-    def _sound_menu_pause(self):
+    def _sound_menu_stop(self):
         """Pause"""
-        # self.is_playing = False  # Need to overwrite
-        self.player.pause()
+        if self.current_row is not None:
+            self.on_row_activated(None, self.current_row)
 
-    def _sound_menu_next(self):
+
+    def _sound_menu_pause(self, *args):
+        """Pause"""
+        if self.current_row is not None:
+            self.on_row_activated(None, self.current_row)
+
+    def _sound_menu_next(self, *args):
         """Next"""
         index = self.current_row.get_index()
         index += 1
         if index > len(self.trackview.get_children()) - 1:
             index = 0
-        current_row = self.trackview.get_row_at_index(index)
+        row = self.trackview.get_row_at_index(index)
+        self.trackview.select_row(row)
+        self.on_row_activated(None, row)
 
-        artists = [current_row.data['feed_name']]
-        album = current_row.data['feed_name']
-        title = current_row.data['title']
-        feed_id = current_row.data['feed_id']
-        feed_image = current_row.data['feed_image']
-        album_art = get_thumbnail_filename_for_feed(feed_id, feed_image)
-        self.sound_menu.song_changed(artists, album, title, album_art)
-        self.sound_menu.signal_playing()
-
-        self.trackview.select_row(current_row)
-
-    def _sound_menu_previous(self):
+    def _sound_menu_previous(self, *args):
         """Previous"""
         index = self.current_row.get_index()
         index -= 1
         if index < 0:
             index = len(self.trackview.get_children()) - 1
-        current_row = self.trackview.get_row_at_index(index)
-
-        artists = [current_row.data['feed_name']]
-        album = current_row.data['feed_name']
-        title = current_row.data['title']
-        feed_id = current_row.data['feed_id']
-        feed_image = current_row.data['feed_image']
-        album_art = get_thumbnail_filename_for_feed(feed_id, feed_image)
-        self.sound_menu.song_changed(artists, album, title, album_art)
-        self.sound_menu.signal_playing()
-
-        self.trackview.select_row(current_row)
+        row = self.trackview.get_row_at_index(index)
+        self.trackview.select_row(row)
+        self.on_row_activated(None, row)
 
     def _sound_menu_raise(self):
         """Click on player"""
         self.win_preferences.show()
 
     def on_row_selected(self, widget, row):
-        self.previous_row = self.current_row
-        self.current_row = row
+        #self.previous_row = self.current_row
+        #self.current_row = row
+        print('-------- selected ----------')
+        if row.data['filename'] is None or not os.path.exists(os.path.join(
+                comun.PODCASTS_DIR, row.data['filename'])):
+            self.btn_play_pause.set_sensitive(False)
+            self.btn_forward.set_sensitive(False)
+            self.btn_backward.set_sensitive(False)
+            self.combo_speed.set_sensitive(False)
+        else:
+            self.btn_play_pause.set_sensitive(True)
+            self.btn_forward.set_sensitive(True)
+            self.btn_backward.set_sensitive(True)
+            self.combo_speed.set_sensitive(True)
+
+    def update_duration(self):
+        duration = self.player.get_duration()
+        self.db.set_track_duration(self.current_row.data['id'], duration)
+        self.current_row.set_duration(duration)
+        return False
+
+    def update_position(self):
+        position = self.player.get_position()
+        self.current_row.set_position(position)
+        return self.player.status == Status.PLAYING
+
+    def on_player_started(self, player, position):
+        print('**** player started ****')
+        self.img_play_pause.set_from_pixbuf(LPAUSE)
+        self.current_row.set_playing(True)
+        if self.current_row.data['position'] > 0:
+            self.player.set_position(self.current_row.data['position'])
+        if self.current_row.data['duration'] == 0:
+            GLib.timeout_add(50, self.update_duration)
+        GLib.timeout_add_seconds(1, self.update_position)
+        artists = [self.current_row.data['feed_name']]
+        album = self.current_row.data['feed_name']
+        title = self.current_row.data['title']
+        feed_id = self.current_row.data['feed_id']
+        feed_image = self.current_row.data['feed_image']
+        album_art = get_thumbnail_filename_for_feed(feed_id, feed_image)
+        self.sound_menu.song_changed(artists, album, title, album_art)
+        self.sound_menu.signal_playing()
+
+    def on_player_paused(self, player, position):
+        print('**** player paused ****')
+        self.current_row.set_playing(False)
+        self.img_play_pause.set_from_pixbuf(LPLAY)
+        position = self.player.get_position()
+        self.db.set_track_position(self.current_row.data['id'], position)
+        self.current_row.set_position(position)
+        artists = [self.current_row.data['feed_name']]
+        album = self.current_row.data['feed_name']
+        title = self.current_row.data['title']
+        feed_id = self.current_row.data['feed_id']
+        feed_image = self.current_row.data['feed_image']
+        album_art = get_thumbnail_filename_for_feed(feed_id, feed_image)
+        self.sound_menu.song_changed(artists, album, title, album_art)
+        self.sound_menu.signal_paused()
+
+    def on_player_stopped(self, player, position):
+        pass
 
     def on_row_activated(self, widget, row):
-        print('row_activated', row.get_index())
-        exists = False
-        if row.data[9] is not None:
-            filename = os.path.join(comun.PODCASTS_DIR, row.data[9])
-            if os.path.exists(filename):
-                exists = True
-                if self.current_row is not None:
-                    if self.current_row == row:
-                        if self.current_row.is_playing:
-                            self.player.pause()
-                            self.current_row.set_playing(False)
-                        else:
-                            self.player.play()
-                            self.sound_menu.song_changed('', '', 'Title of the song', None) #Icon)
-                            self.current_row.set_playing(True)
-                    else:
-                        if self.current_row.is_playing:
-                            self.player.pause()
-                            self.current_row.set_playing(False)
-                            self.player.set_sound(filename)
-                            self.player.play()
-                            row.set_playing(True)
-                            self.current_row = row
-                else:
-                    self.current_row = row
-                    self.player.set_sound(filename)
-                    self.player.play()
-                    self.current_row.set_playing(True)
-        if exists is False:
-            url = row.data[6]
+        if row != self.trackview.get_selected_row():
+            self.trackview.select_row(row)
+
+        if self.current_row is None or self.current_row != row:
+            if self.current_row is not None:
+                self.current_row.set_playing(False)
+            self.current_row = row
+            self.player.stop()
+
+        if row.data['filename'] is not None and os.path.exists(os.path.join(
+                comun.PODCASTS_DIR, row.data['filename'])):
+            if self.current_row.is_playing:
+                self.player.pause()
+            else:
+                self.player.set_filename(os.path.join(comun.PODCASTS_DIR,
+                                                      row.data['filename']))
+                value = get_selected_value_in_combo(self.combo_speed)
+                self.player.set_speed(value)
+                self.player.play()
+        else:
+            url = row.data['url']
             ext = url.split('.')[-1]
             filename = os.path.join(comun.PODCASTS_DIR,
-                                    'podcast_{0}.{1}'.format(row.data[0], ext))
+                                    'podcast_{0}.{1}'.format(row.data['id'],
+                                                             ext))
             if row.is_downloading is False:
                 downloader = Downloader(url, filename)
                 downloader.connect('ended', self.on_downloader_ended,
                                    row, filename)
                 downloader.connect('failed', self.on_downloader_failed,
                                    row, filename)
-                print('started')
                 downloader.start()
                 row.set_downloading(True)
 
     def on_downloader_failed(self, widget, row, filename):
-        print('failed')
         if os.path.exists(filename):
             os.remove(filename)
-        row.set_downloading(True)
-        row.is_downloading = False
+        row.set_downloading(False)
 
     def on_downloader_ended(self, widget, row, filename):
-        self.db.set_track_downloaded(row.data[0], filename.split('/')[-1])
-        ans = self.db.get_track(row.data[0])
+        self.db.set_track_downloaded(row.data['id'], filename.split('/')[-1])
+        ans = self.db.get_track_from_feed(row.data['id'])
         if ans is not None:
             row.set_data(ans)
+        row.set_downloading(False)
+        self.on_row_activated(None, row)
 
     def init_headerbar(self):
         icontheme = Gtk.IconTheme.get_default()
@@ -628,6 +768,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.menu['lists'].set_menu_model(menumodel)
         hb.pack_start(self.menu['lists'])
 
+        '''
         self.menu['open'] = Gtk.MenuButton(_('Open'))
         self.menu['open'].set_menu_model(self.builder.get_object('open-menu'))
         hb.pack_start(self.menu['open'])
@@ -673,6 +814,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.menu['save'] = Gtk.Button(_('Save'))
         hb.pack_end(self.menu['save'])
+        '''
 
     def on_toolbar_clicked(self, widget, option):
         print(widget, option)

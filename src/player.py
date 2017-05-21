@@ -29,22 +29,15 @@ try:
     gi.require_version('GObject', '2.0')
 except Exception as e:
     print(e)
-    exit(1)
+    exit(-1)
 from gi.repository import Gst
-from gi.repository import Gtk
 from gi.repository import GLib
 from gi.repository import GObject
-from datetime import datetime
-from datetime import timedelta
 from enum import Enum
-import time
+import mimetypes
+from ctypes import *
 
-
-def sleep(milliseconds=1000):
-    d = timedelta(milliseconds)
-    t1 = datetime.now()
-    while datetime.now() - t1 < d:
-        Gtk.main_iteration()
+mimetypes.init()
 
 
 class Status(Enum):
@@ -57,134 +50,117 @@ class Player(GObject.GObject):
     __gsignals__ = {
         'started': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (int,)),
         'stopped': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (int,)),
-        'ended': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (int,)),
         'paused': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, (int,)),
     }
 
     def __init__(self):
         GObject.GObject.__init__(self)
         Gst.init_check(None)
-        self.IS_GST010 = Gst.version()[0] == 0
         self.status = Status.STOPPED
-        self.sound = None
-        self.player = Gst.ElementFactory.make("playbin", "player")
-        self.player.connect("about-to-finish", self.on_player_finished)
-        bus = self.player.get_bus()
-        bus.connect("message", self.on_player_message)
-        # Overwrite libraty methods
+        self.player = None
+
+    def get_player(self):
+        player = Gst.parse_launch('uridecodebin name=urisrc !\
+ audioconvert ! audioresample ! queue ! speed name=speed !\
+ volume name=volume ! equalizer-10bands name=equalizer ! autoaudiosink')
+        bus = player.get_bus()
+        bus.add_signal_watch()
+        bus.connect('message::state-changed', self.on_state_changed)
+        bus.connect('message', self.on_player_message)
+        return player
 
     def emit(self, *args):
-        GObject.GObject.emit(self, *args)
-        GObject.idle_add(GObject.GObject.emit, self, *args)
         GLib.idle_add(GObject.GObject.emit, self, *args)
-
-    def on_player_finished(self, player):
-        self.status = Status.STOPPED
-        self.emit('stopped', self.get_relative_position())
-        self.emit('ended', self.get_relative_position())
 
     def on_player_message(self, bus, message):
         t = message.type
-        print('---', t, '---')
-        if t == Gst.Message.EOS:
+        # print('---', t, '---')
+        if t == Gst.MessageType.EOS:
             self.player.set_state(Gst.State.NULL)
-        elif t == Gst.Message.ERROR:
+        elif t == Gst.MessageType.ERROR:
             self.player.set_state(Gst.State.NULL)
             err, debug = message.parse_error()
-            print("Error: %s" % err, debug)
+            print('Error: %s' % err, debug)
 
-    def set_sound(self, sound):
-        self.sound = sound
+    def on_state_changed(self, bus, msg):
+        old, new, pending = msg.parse_state_changed()
+        # print(old, new, pending)
+
+    def set_filename(self, filename):
+        if self.player is not None:
+            self.player.set_state(Gst.State.NULL)
+        self.player = self.get_player()
+        self.player.get_by_name('urisrc').set_property('uri', 'file://'+filename)
 
     def play(self):
-        if self.status is Status.PAUSED:
-            self.player.set_state(Gst.State.PLAYING)
-            self.status = Status.PLAYING
-            self.emit('started', self.get_relative_position())
-            self.sound_menu.signal_playing()
-        elif self.status is Status.STOPPED and self.sound is not None:
-            self.player.set_property('uri', 'file://' + self.sound)
-            self.player.set_state(Gst.State.PLAYING)
-            self.status = Status.PLAYING
-            self.emit('started', self.get_relative_position())
-            self.sound_menu.signal_playing()
-
-    def stop(self):
-        if self.status is not Status.STOPPED:
-            self.player.set_state(Gst.State.NULL)
-            self.status = Status.STOPPED
-            self.emit('stoped', self.get_relative_position())
+        '''Play'''
+        self.player.set_state(Gst.State.PLAYING)
+        self.status = Status.PLAYING
+        self.emit('started', self.get_position())
 
     def pause(self):
-        if self.status is Status.PLAYING:
-            self.player.set_state(Gst.State.PAUSED)
-            self.status = Status.PAUSED
-            self.emit('paused', self.get_relative_position())
-            self.sound_menu.signal_paused()
+        '''Pause'''
+        self.player.set_state(Gst.State.PAUSED)
+        self.status = Status.PAUSED
+        self.emit('paused', self.get_position())
+
+    def stop(self):
+        '''Stop'''
+        if self.player is not None:
+            self.player.set_state(Gst.State.READY)
+            self.status = Status.STOPPED
+            self.emit('stopped', self.get_position())
+
+    def set_volume(self, volume):
+        if self.player is not None:
+            self.player.get_by_name('volume').set_property('volume', volume)
+
+    def set_speed(self, speed):
+        if self.player is not None:
+            self.player.get_by_name('speed').set_property('speed', speed)
+
+    def set_position(self, position):
+        self.player.get_state(Gst.CLOCK_TIME_NONE)
+        try:
+            assert self.player.seek_simple(Gst.Format.TIME,
+                                           Gst.SeekFlags.FLUSH,
+                                           position * Gst.SECOND)
+        except AssertionError as e:
+            print(e)
 
     def get_duration(self):
-        if self.IS_GST010:
-            duration_nanosecs = self.player.query_duration(Gst.Format.TIME)[2]
-        else:
-            duration_nanosecs = self.player.query_duration(Gst.Format.TIME)[1]
+        duration_nanosecs = self.player.query_duration(Gst.Format.TIME)[1]
         duration = float(duration_nanosecs) / Gst.SECOND
         return duration
 
     def get_position(self):
-        if self.IS_GST010:
-            nanosecs = self.player.query_position(Gst.Format.TIME)[2]
-        else:
-            nanosecs = self.player.query_position(Gst.Format.TIME)[1]
+        nanosecs = self.player.query_position(Gst.Format.TIME)[1]
         position = float(nanosecs) / Gst.SECOND
         return position
 
-    def set_relative_position(self, position):
-        if self.status is Status.PLAYING:
-            if position >= 0 and position <= 100:
-                nanosecs = int(position * self.get_duration() *
-                               Gst.SECOND / 100.0)
-                if self.status == Status.PLAYING:
-                    was_playing = True
-                    self.pause()
-                else:
-                    was_playing = False
-                self.player.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH,
-                                        nanosecs)
-                if was_playing:
-                    self.play()
-
-    def get_relative_position(self):
-        if self.get_duration() == 0:
-            return 0
-        return int(100.0 * self.get_position() / self.get_duration())
-
-    def __del__(self):
-        self.stop()
-
 
 if __name__ == '__main__':
+    import time
     def fin(player, position, what):
         print(player, position, what)
-    print(200)
-    player2 = Player()
-    player2.set_sound('/home/lorenzo/.config/upodcatcher/054.%20Telef%C3%B3nica%20esta%20siendo%20atacada!%20.mp3')
-    #player2.set_sound('/home/lorenzo/Descargas/sample.mp3')
-    player2.connect('started', fin, 'started')
-    player2.connect('paused', fin, 'paused')
-    player2.connect('stopped', fin, 'stopped')
-    player2.connect('ended', fin, 'ended')
-    player2.play()
-    print(1, player2.get_relative_position())
+    print('start')
+    player = Player()
+    player.set_filename('/datos/Descargas/test.ogg')
+    player.play()
+    player.set_speed(2)
     time.sleep(2)
-    player2.set_relative_position(50)
-    print(2, player2.get_relative_position())
+    player.pause()
     time.sleep(2)
-    print(3, player2.get_relative_position())
-    player2.set_relative_position(98)
-    print(4, player2.get_relative_position())
+    player.play()
     time.sleep(2)
-    print(5, player2.get_relative_position())
-    player2.set_relative_position(0)
-    player2.play()
+    player.set_filename('/home/lorenzo/Descargas/sample.mp3')
+    player.connect('started', fin, 'started')
+    player.connect('paused', fin, 'paused')
+    player.connect('stopped', fin, 'stopped')
+    player.set_speed(1)
+    player.play()
     time.sleep(2)
-    exit(0)
+    player.set_position(10)
+    time.sleep(2)
+    player.set_position(50)
+    time.sleep(2)

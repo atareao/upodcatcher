@@ -292,6 +292,35 @@ class SoundMenuControls(dbus.service.Object):
         pass
 
     @dbus.service.method('org.mpris.MediaPlayer2.Player')
+    def Stop(self):
+        """Stop
+
+        A dbus signal handler for the Previous signal. Do no override this
+        function directly. Rather, overide _sound_menu_stop. This
+        function is typically only called by the Sound Menu, not directly
+        from code.
+
+        """
+
+        self._sound_menu_stop()
+
+    def _sound_menu_stop(self):
+        """_sound_menu_stop
+
+        This function is called when the user has clicked
+        the previous button in the Sound Indicator. Implementations
+        should overrirde this function in order to a function to
+        advance to the next track. Implementations should call
+        song_changed() and  sound_menu.signal_playing() in order to
+        keep the song information in sync.
+
+        The default implementation of this function has no effect.
+
+
+        """
+        pass
+
+    @dbus.service.method('org.mpris.MediaPlayer2.Player')
     def Previous(self):
         """Previous
 

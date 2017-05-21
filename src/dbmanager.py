@@ -213,6 +213,16 @@ class DBManager():
             return cursor.lastrowid
         return None
 
+    def set_track_duration(self, id, duration):
+        cursor = self.db.cursor()
+        try:
+            cursor.execute('''UPDATE TRACKS SET DURATION=? WHERE ID=?''',
+                           (duration, id))
+            self.db.commit()
+        except Exception as e:
+            print('---', e, '---')
+        cursor.close()
+
     def set_track_position(self, id, position):
         cursor = self.db.cursor()
         try:
@@ -436,7 +446,7 @@ NORDER) VALUES(?, ?, ?, ?)''', (list_id, track_id, False, norder))
         except (sqlite3.IntegrityError, AttributeError) as e:
             print('---', e, '---')
         cursor.close()
-        return []
+        return ans
 
     def get_track(self, id):
         cursor = self.db.cursor()

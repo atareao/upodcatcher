@@ -48,9 +48,7 @@ class Downloader(threading.Thread, GObject.GObject):
         self.daemon = True
 
     def emit(self, *args):
-        # GObject.GObject.emit(self, *args)
-        GObject.idle_add(GObject.GObject.emit, self, *args)
-        # GLib.idle_add(GObject.GObject.emit, self, *args)
+        GLib.idle_add(GObject.GObject.emit, self, *args)
 
     def run(self):
         try:
