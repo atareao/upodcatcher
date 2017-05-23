@@ -42,6 +42,7 @@ import webbrowser
 import os
 import time
 import base64
+import requests
 import comun
 from comun import _
 from dbmanager import DBManager
@@ -50,6 +51,8 @@ from downloader import Downloader
 from sound_menu import SoundMenuControls
 from dbus.mainloop.glib import DBusGMainLoop
 from player import Status
+from async import async_method
+from addfeeddialog import AddFeedDialog
 
 
 PLAY = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PLAY_ICON, 32, 32)
@@ -89,6 +92,12 @@ def get_pixbuf_from_base64string(base64string):
     pixbuf_loader.close()
     pixbuf = pixbuf_loader.get_pixbuf()
     return pixbuf
+
+
+class ItemPodcast():
+    def __init__(self, data, id):
+        self.data = data
+        self.id = id
 
 
 class ListBoxRowWithData(Gtk.ListBoxRow):
@@ -172,6 +181,12 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         self.label4.set_text(time.strftime('%H:%M:%S', time.gmtime(
             self.data['duration'])))
 
+    def get_duration(self):
+        return self.data['duration']
+
+    def get_position(self):
+        return self.data['position']
+
     def set_position(self, position):
         self.data['position'] = position
         self.label3.set_text(time.strftime('%H:%M:%S', time.gmtime(
@@ -182,15 +197,14 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
 
     def set_data(self, data):
         self.data = data
-        self.image.set_from_pixbuf(get_pixbuf_from_base64string(
-            data['feed_image']))
+        pixbuf = get_pixbuf_from_base64string(data['feed_image']).scale_simple(
+            64, 64, GdkPixbuf.InterpType.BILINEAR)
+        self.image.set_from_pixbuf(pixbuf)
         self.label1.set_markup(
             '<big><b>{0}</b></big>'.format(data['feed_name']))
         self.label2.set_text(data['title'])
-        self.label3.set_text(time.strftime('%H:%M:%S', time.gmtime(
-            data['position'])))
-        self.label4.set_text(time.strftime('%H:%M:%S', time.gmtime(
-            data['duration'])))
+        self.set_duration(data['duration'])
+        self.set_position(data['position'])
         self.set_downloading(False)
 
 
@@ -427,6 +441,7 @@ class MainWindow(Gtk.ApplicationWindow):
         # Vertical box. Contains menu and PaneView
         vbox = Gtk.VBox(False, 2)
         self.current_row = None
+        self.object = None
 
         self.player = Player()
         self.player.connect('started', self.on_player_started)
@@ -455,11 +470,19 @@ class MainWindow(Gtk.ApplicationWindow):
         # Init Toolbar
         # self.init_toolbar()
         #
-        scrolledwindow = Gtk.ScrolledWindow()
-        scrolledwindow.set_policy(Gtk.PolicyType.AUTOMATIC,
+        self.scrolledwindow1 = Gtk.ScrolledWindow()
+        self.scrolledwindow1.set_policy(Gtk.PolicyType.AUTOMATIC,
                                   Gtk.PolicyType.AUTOMATIC)
-        scrolledwindow.set_shadow_type(Gtk.ShadowType.ETCHED_OUT)
-        vbox.pack_start(scrolledwindow, True, True, 0)
+        self.scrolledwindow1.set_shadow_type(Gtk.ShadowType.ETCHED_OUT)
+        self.scrolledwindow1.set_visible(True)
+        vbox.pack_start(self.scrolledwindow1, True, True, 0)
+
+        self.scrolledwindow2 = Gtk.ScrolledWindow()
+        self.scrolledwindow2.set_policy(Gtk.PolicyType.AUTOMATIC,
+                                  Gtk.PolicyType.AUTOMATIC)
+        self.scrolledwindow2.set_shadow_type(Gtk.ShadowType.ETCHED_OUT)
+        vbox.pack_start(self.scrolledwindow2, True, True, 0)
+        self.scrolledwindow2.set_visible(False)
 
         self.storefeeds = Gtk.ListStore(int,
                                         str,
@@ -490,13 +513,16 @@ class MainWindow(Gtk.ApplicationWindow):
         self.iconview.set_spacing(0)
         self.iconview.set_row_spacing(20)
         self.iconview.set_item_padding(0)
-        #scrolledwindow.add(self.iconview)
+        self.iconview.connect('item-activated',
+                              self.on_iconview_actived)
+        self.scrolledwindow1.add(self.iconview)
 
         self.trackview = Gtk.ListBox()
         self.trackview.connect('row-activated', self.on_row_activated)
         self.trackview.connect('row-selected', self.on_row_selected)
         self.trackview.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        scrolledwindow.add(self.trackview)
+        self.scrolledwindow2.add(self.trackview)
+
 
         # StatusBar
         self.statusbar = Gtk.Statusbar()
@@ -532,6 +558,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.statusbar.pack_start(self.btn_step_backward, False, False, 0)
         self.btn_backward = Gtk.Button.new()
         self.btn_backward.add(Gtk.Image.new_from_pixbuf(BACKWARD))
+        self.btn_backward.connect('clicked', self.on_backward_clicked)
         self.statusbar.pack_start(self.btn_backward, False, False, 0)
         self.btn_play_pause = Gtk.Button.new()
         self.img_play_pause = Gtk.Image.new_from_pixbuf(LPLAY)
@@ -540,11 +567,13 @@ class MainWindow(Gtk.ApplicationWindow):
         self.statusbar.pack_start(self.btn_play_pause, False, False, 0)
         self.btn_forward = Gtk.Button.new()
         self.btn_forward.add(Gtk.Image.new_from_pixbuf(FORWARD))
+        self.btn_forward.connect('clicked', self.on_forward_clicked)
         self.statusbar.pack_start(self.btn_forward, False, False, 0)
         self.btn_step_forward = Gtk.Button.new()
         self.btn_step_forward.add(Gtk.Image.new_from_pixbuf(STEP_FORWARD))
         self.btn_step_forward.connect('clicked', self._sound_menu_next)
         self.statusbar.pack_start(self.btn_step_forward, False, False, 0)
+        self.statusbar.set_sensitive(False)
 
         vbox.pack_start(self.statusbar, False, False, 0)
         #
@@ -552,29 +581,57 @@ class MainWindow(Gtk.ApplicationWindow):
         for feed in self.db.get_feeds():
             thumbnail = os.path.join(comun.THUMBNAILS_DIR,
                                      'feed_{0}.png'.format(feed['id']))
+            pixbuf = get_pixbuf_from_base64string(feed['image'])
             if not os.path.exists(thumbnail):
-                pixbuf = get_pixbuf_from_base64string(feed['image'])
                 pixbuf.savev(thumbnail, 'png', [], [])
-            '''
+
             self.storefeeds.append([feed['id'],
                                     feed['url'],
                                     feed['title'],
                                     feed['image'],
                                     feed['norder'],
                                     pixbuf])
-            '''
-
-        for index, track in enumerate(self.db.get_tracks_from_feed(1)):
-            self.trackview.add(ListBoxRowWithData(track))
-
         self.show_all()
 
+    def on_iconview_actived(self, widget, index):
+        print(widget, index)
+        model = widget.get_model()
+        selected = widget.get_selected_items()[0]
+        id = model.get_value(model.get_iter(selected), 0)
+
+        self.object = self.db.get_feed(id)
+
+        self.menu['back'].get_child().set_from_gicon(Gio.ThemedIcon(
+            name='media-playback-start-rtl-symbolic'), Gtk.IconSize.BUTTON)
+        self.menu['back'].connect('clicked', self.on_button_back_clicked)
+        self.menu['back'].set_sensitive(True)
+
+        url = model.get_value(model.get_iter(selected), 1)
+        print(id, url)
+        for awidget in self.trackview.get_children():
+            self.trackview.remove(awidget)
+        self.db.add_tracks(id)
+        for index, track in enumerate(self.db.get_tracks_from_feed(id)):
+            print('---', index, '---')
+            row = ListBoxRowWithData(track)
+            row.show()
+            self.trackview.add(row)
+        widget.hide()
+        self.scrolledwindow1.set_visible(False)
+        self.scrolledwindow2.set_visible(True)
+        self.scrolledwindow2.show_all()
+        self.statusbar.set_sensitive(True)
+
+    def on_button_back_clicked(self, widget):
+        self.scrolledwindow2.set_visible(False)
+        self.statusbar.set_sensitive(False)
+        self.scrolledwindow1.show_all()
+        self.scrolledwindow1.set_visible(True)
+        self.object = None
+
     def on_combo_speed_changed(self, combo):
-        try:
-            value = get_selected_value_in_combo(combo)
-            self.player.set_speed(value)
-        except Exception as e:
-            print(e)
+        value = get_selected_value_in_combo(combo)
+        self.player.set_speed(value)
 
     def _sound_menu_is_playing(self):
         return self.player.status == Status.PLAYING
@@ -591,7 +648,6 @@ class MainWindow(Gtk.ApplicationWindow):
         """Pause"""
         if self.current_row is not None:
             self.on_row_activated(None, self.current_row)
-
 
     def _sound_menu_pause(self, *args):
         """Pause"""
@@ -732,7 +788,30 @@ class MainWindow(Gtk.ApplicationWindow):
         if ans is not None:
             row.set_data(ans)
         row.set_downloading(False)
+        if self.trackview.get_selected_row() == row:
+            self.btn_play_pause.set_sensitive(True)
+            self.btn_forward.set_sensitive(True)
+            self.btn_backward.set_sensitive(True)
+            self.combo_speed.set_sensitive(True)
         self.on_row_activated(None, row)
+
+    def on_forward_clicked(self, widget):
+        if self.current_row is not None:
+            position = self.current_row.get_position()
+            position += 30
+            if position > self.current_row.get_duration():
+                self.position = 0
+            self.current_row.set_position(position)
+            self.player.set_position(position)
+
+    def on_backward_clicked(self, widget):
+        if self.current_row is not None:
+            position = self.current_row.get_position()
+            position -= 30
+            if position < 0:
+                position = 0
+            self.current_row.set_position(position)
+            self.player.set_position(position)
 
     def init_headerbar(self):
         icontheme = Gtk.IconTheme.get_default()
@@ -768,56 +847,56 @@ class MainWindow(Gtk.ApplicationWindow):
         self.menu['lists'].set_menu_model(menumodel)
         hb.pack_start(self.menu['lists'])
 
-        '''
-        self.menu['open'] = Gtk.MenuButton(_('Open'))
-        self.menu['open'].set_menu_model(self.builder.get_object('open-menu'))
-        hb.pack_start(self.menu['open'])
+        self.menu['remove'] = Gtk.Button()
+        self.menu['remove'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
+            name='list-remove-symbolic'), Gtk.IconSize.BUTTON))
+        hb.pack_end(self.menu['remove'])
 
-        self.menu['new-tab'] = Gtk.Button()
-        self.menu['new-tab'].set_image(
-            Gtk.Image.new_from_pixbuf(icontheme.load_icon_for_scale(
-                'tab-new-symbolic', 16, 1,
-                Gtk.IconLookupFlags.FORCE_SIZE)))
-        self.menu['new-tab'].set_tooltip_text(_('New tab'))
-        self.menu['new-tab'].connect(
-            'clicked', self.on_toolbar_clicked, 'new-tab')
-        hb.pack_start(self.menu['new-tab'])
+        self.menu['add'] = Gtk.Button()
+        self.menu['add'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
+            name='list-add-symbolic'), Gtk.IconSize.BUTTON))
+        self.menu['add'].connect('clicked', self.on_add_feed_clicked)
+        hb.pack_end(self.menu['add'])
 
-        self.menu['tools'] = Gtk.MenuButton()
-        self.menu['tools'].set_image(
-            Gtk.Image.new_from_pixbuf(icontheme.load_icon_for_scale(
-                'format-justify-fill-symbolic', 16, 1,
-                Gtk.IconLookupFlags.FORCE_SIZE)))
-        self.menu['tools'].set_tooltip_text(_('Tools'))
-        self.menu['tools'].set_popover(self.builder.get_object("tools"))
-        hb.pack_end(self.menu['tools'])
+        self.menu['back'] = Gtk.Button()
+        self.menu['back'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
+            name='media-record-symbolic'), Gtk.IconSize.BUTTON))
+        hb.pack_end(self.menu['back'])
 
-        self.menu['preview'] = Gtk.Button()
-        self.menu['preview'].set_image(
-            Gtk.Image.new_from_pixbuf(icontheme.load_icon_for_scale(
-                'weather-clear-symbolic', 16, 1,
-                Gtk.IconLookupFlags.FORCE_SIZE)))
-        self.menu['preview'].set_tooltip_text(_('Preview'))
-        self.menu['preview'].connect(
-            'clicked', self.on_toolbar_clicked, 'preview')
-        hb.pack_end(self.menu['preview'])
-
-        self.menu['search'] = Gtk.Button()
-        self.menu['search'].set_image(
-            Gtk.Image.new_from_pixbuf(icontheme.load_icon_for_scale(
-                'preferences-system-search-symbolic', 16, 1,
-                Gtk.IconLookupFlags.FORCE_SIZE)))
-        self.menu['search'].set_tooltip_text(_('Search'))
-        self.menu['search'].connect(
-            'clicked', self.on_toolbar_clicked, 'search')
-        hb.pack_end(self.menu['search'])
-
-        self.menu['save'] = Gtk.Button(_('Save'))
-        hb.pack_end(self.menu['save'])
-        '''
+    def on_add_feed_clicked(self, widget):
+        if self.object is None:
+            afd = AddFeedDialog()
+            if afd.run() == Gtk.ResponseType.ACCEPT:
+                url = afd.get_url()
+                if not url.startswith('http://') or url.startswith('https://'):
+                    url = 'http://' + url
+                    self.add_feed(url)
+            afd.destroy()
 
     def on_toolbar_clicked(self, widget, option):
         print(widget, option)
+
+    @async_method
+    def add_feed(self, url):
+        print(url)
+        request = requests.get(url)
+        if request.status_code == 200:
+            id = self.db. add_feed(url)
+            if id is not None:
+                print(id)
+                feed = self.db.get_feed(id)
+                print(feed)
+                thumbnail = os.path.join(comun.THUMBNAILS_DIR,
+                                         'feed_{0}.png'.format(feed['id']))
+                pixbuf = get_pixbuf_from_base64string(feed['image'])
+                if not os.path.exists(thumbnail):
+                    pixbuf.savev(thumbnail, 'png', [], [])
+                self.storefeeds.append([feed['id'],
+                                        feed['url'],
+                                        feed['title'],
+                                        feed['image'],
+                                        feed['norder'],
+                                        pixbuf])
 
     def on_toggled(self, widget, arg):
         if widget.get_active() is True:

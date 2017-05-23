@@ -154,6 +154,7 @@ class DBManager():
         self.db.commit()
 
     def add_feed(self, url):
+        ans = None
         r = requests.get(url, verify=False)
         if r.status_code == 200:
             d = feedparser.parse(r.text)
@@ -167,11 +168,11 @@ class DBManager():
                 cursor.execute('''INSERT INTO FEEDS(URL, TITLE, IMAGE, NORDER)
      VALUES(?, ?, ?, ?)''', (url, title, image, norder))
                 self.db.commit()
-                return cursor.lastrowid
+                ans = cursor.lastrowid
             except sqlite3.IntegrityError as e:
                 print('---', e, '---')
             cursor.close()
-        return None
+        return ans
 
     def add_tracks(self, feed_id):
         feed = self.get_feed(feed_id)
@@ -449,28 +450,30 @@ NORDER) VALUES(?, ?, ?, ?)''', (list_id, track_id, False, norder))
         return ans
 
     def get_track(self, id):
+        ans = None
         cursor = self.db.cursor()
         try:
             cursor.execute('SELECT * FROM TRACKS WHERE ID=?', (id,))
             ans = cursor.fetchone()
             cursor.close()
-            return Track(ans)
+            ans = Track(ans)
         except (sqlite3.IntegrityError, AttributeError) as e:
             print('---', e, '---')
         cursor.close()
-        return None
+        return ans
 
     def get_feed(self, id):
+        ans = None
         cursor = self.db.cursor()
         try:
             cursor.execute('SELECT * FROM FEEDS WHERE ID=?', (id,))
             ans = cursor.fetchone()
             cursor.close()
-            return Feed(ans)
+            ans = Feed(ans)
         except (sqlite3.IntegrityError, AttributeError) as e:
             print('---', e, '---')
         cursor.close()
-        return None
+        return ans
 
 
 if __name__ == '__main__':

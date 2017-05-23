@@ -35,7 +35,6 @@ from gi.repository import GLib
 from gi.repository import GObject
 from enum import Enum
 import mimetypes
-from ctypes import *
 
 mimetypes.init()
 
@@ -121,19 +120,23 @@ class Player(GObject.GObject):
 
     def set_position(self, position):
         self.player.get_state(Gst.CLOCK_TIME_NONE)
+        self.player.set_state(Gst.State.PAUSED)
         try:
             assert self.player.seek_simple(Gst.Format.TIME,
                                            Gst.SeekFlags.FLUSH,
                                            position * Gst.SECOND)
         except AssertionError as e:
             print(e)
+        self.player.set_state(Gst.State.PLAYING)
 
     def get_duration(self):
+        self.player.get_state(Gst.CLOCK_TIME_NONE)
         duration_nanosecs = self.player.query_duration(Gst.Format.TIME)[1]
         duration = float(duration_nanosecs) / Gst.SECOND
         return duration
 
     def get_position(self):
+        self.player.get_state(Gst.CLOCK_TIME_NONE)
         nanosecs = self.player.query_position(Gst.Format.TIME)[1]
         position = float(nanosecs) / Gst.SECOND
         return position
