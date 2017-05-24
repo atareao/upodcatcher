@@ -60,6 +60,7 @@ PAUSE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PAUSE_ICON, 32, 32)
 DOWNLOAD = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.DOWNLOAD_ICON, 32, 32)
 DOWNLOAD_ANIM = GdkPixbuf.PixbufAnimation.new_from_file(comun.DOWNLOAD_ANIM)
 BACKWARD = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.BACKWARD_ICON, 16, 16)
+NOIMAGE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.NOIMAGE_ICON, 128, 128)
 STEP_BACKWARD = GdkPixbuf.Pixbuf.new_from_file_at_size(
     comun.STEP_BACKWARD_ICON, 16, 16)
 FORWARD = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.FORWARD_ICON, 16, 16)
@@ -86,6 +87,8 @@ def get_selected_value_in_combo(combo):
 
 
 def get_pixbuf_from_base64string(base64string):
+    if base64string is None:
+        return NOIMAGE
     raw_data = base64.b64decode(base64string.encode())
     pixbuf_loader = GdkPixbuf.PixbufLoader.new_with_mime_type("image/png")
     pixbuf_loader.write(raw_data)
@@ -865,18 +868,19 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def on_add_feed_clicked(self, widget):
         if self.object is None:
-            afd = AddFeedDialog()
+            afd = AddFeedDialog(self)
             if afd.run() == Gtk.ResponseType.ACCEPT:
                 url = afd.get_url()
                 if not url.startswith('http://') or url.startswith('https://'):
                     url = 'http://' + url
-                    self.add_feed(url)
+                self.add_feed(url)
             afd.destroy()
 
     def on_toolbar_clicked(self, widget, option):
         print(widget, option)
 
-    @async_method
+    @async_method(on_done=lambda self,
+                  result, error: self.on_add_feed_done(result, error))
     def add_feed(self, url):
         print(url)
         request = requests.get(url)
@@ -897,6 +901,9 @@ class MainWindow(Gtk.ApplicationWindow):
                                         feed['image'],
                                         feed['norder'],
                                         pixbuf])
+
+    def on_add_feed_done(self, result, error):
+        print(result, error)
 
     def on_toggled(self, widget, arg):
         if widget.get_active() is True:

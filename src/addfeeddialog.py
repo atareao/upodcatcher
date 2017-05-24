@@ -34,11 +34,11 @@ from comun import _
 
 class AddFeedDialog(Gtk.Dialog):
     """docstring for AddFeedDialog"""
-    def __init__(self):
+    def __init__(self, window):
         #
         Gtk.Dialog.__init__(self, '{0} | {1}'.format(comun.APPNAME,
                                                      _('Add Podcast')),
-                            None,
+                            window,
                             Gtk.DialogFlags.MODAL |
                             Gtk.DialogFlags.DESTROY_WITH_PARENT,
                             (Gtk.STOCK_CANCEL, Gtk.ResponseType.REJECT,
