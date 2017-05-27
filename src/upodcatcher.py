@@ -43,6 +43,7 @@ import os
 import time
 import base64
 import requests
+import datetime
 import comun
 from comun import _
 from dbmanager import DBManager
@@ -70,6 +71,10 @@ LPLAY = GdkPixbuf.Pixbuf.new_from_file_at_size(
     comun.LITTLE_PLAY_ICON, 16, 16)
 LPAUSE = GdkPixbuf.Pixbuf.new_from_file_at_size(
     comun.LITTLE_PAUSE_ICON, 16, 16)
+LISTENED = GdkPixbuf.Pixbuf.new_from_file_at_size(
+    comun.LISTENED_ICON, 16, 16)
+NOLISTENED = GdkPixbuf.Pixbuf.new_from_file_at_size(
+    comun.NOLISTENED_ICON, 16, 16)
 
 
 def select_value_in_combo(combo, value):
@@ -139,6 +144,14 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         self.label4.set_halign(Gtk.Align.END)
         grid.attach(self.label4, 6, 3, 1, 1)
 
+        self.listened = Gtk.Image()
+        self.listened.set_from_pixbuf(NOLISTENED)
+        self.listened.set_margin_top(5)
+        self.listened.set_margin_bottom(5)
+        self.listened.set_margin_left(5)
+        self.listened.set_margin_right(5)
+        grid.attach(self.listened, 7, 0, 1, 1)
+
         self.progressbar = Gtk.ProgressBar()
         self.progressbar.set_margin_bottom(5)
         self.progressbar.set_valign(Gtk.Align.CENTER)
@@ -190,6 +203,13 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
     def get_position(self):
         return self.data['position']
 
+    def set_listened(self, listened):
+        self.data['listened'] = 1 if listened is True else 0
+        if listened:
+            self.listened.set_from_pixbuf(LISTENED)
+        else:
+            self.listened.set_from_pixbuf(NOLISTENED)
+
     def set_position(self, position):
         self.data['position'] = position
         self.label3.set_text(time.strftime('%H:%M:%S', time.gmtime(
@@ -199,6 +219,9 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
             self.progressbar.set_fraction(fraction)
 
     def set_data(self, data):
+        print('============================')
+        print(data)
+        print('============================')
         self.data = data
         pixbuf = get_pixbuf_from_base64string(data['feed_image']).scale_simple(
             64, 64, GdkPixbuf.InterpType.BILINEAR)
@@ -206,6 +229,7 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         self.label1.set_markup(
             '<big><b>{0}</b></big>'.format(data['feed_name']))
         self.label2.set_text(data['title'])
+        self.set_listened(data['listened'] == 1)
         self.set_duration(data['duration'])
         self.set_position(data['position'])
         self.set_downloading(False)
@@ -475,14 +499,14 @@ class MainWindow(Gtk.ApplicationWindow):
         #
         self.scrolledwindow1 = Gtk.ScrolledWindow()
         self.scrolledwindow1.set_policy(Gtk.PolicyType.AUTOMATIC,
-                                  Gtk.PolicyType.AUTOMATIC)
+                                        Gtk.PolicyType.AUTOMATIC)
         self.scrolledwindow1.set_shadow_type(Gtk.ShadowType.ETCHED_OUT)
         self.scrolledwindow1.set_visible(True)
         vbox.pack_start(self.scrolledwindow1, True, True, 0)
 
         self.scrolledwindow2 = Gtk.ScrolledWindow()
         self.scrolledwindow2.set_policy(Gtk.PolicyType.AUTOMATIC,
-                                  Gtk.PolicyType.AUTOMATIC)
+                                        Gtk.PolicyType.AUTOMATIC)
         self.scrolledwindow2.set_shadow_type(Gtk.ShadowType.ETCHED_OUT)
         vbox.pack_start(self.scrolledwindow2, True, True, 0)
         self.scrolledwindow2.set_visible(False)
@@ -494,23 +518,12 @@ class MainWindow(Gtk.ApplicationWindow):
                                         int,
                                         GdkPixbuf.Pixbuf)
 
-        self.storetracks = Gtk.ListStore(int,
-                                         str,
-                                         str,
-                                         str,
-                                         str,
-                                         str,
-                                         str,
-                                         bool,
-                                         bool,
-                                         int,
-                                         GdkPixbuf.Pixbuf)
         self.iconview = Gtk.IconView()
         self.iconview.set_model(self.storefeeds)
         self.iconview.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
         self.iconview.set_pixbuf_column(5)
         self.iconview.set_text_column(2)
-        self.iconview.set_item_width(128)
+        self.iconview.set_item_width(90)
         self.iconview.set_columns(-1)
         self.iconview.set_column_spacing(0)
         self.iconview.set_spacing(0)
@@ -595,6 +608,7 @@ class MainWindow(Gtk.ApplicationWindow):
                                     feed['norder'],
                                     pixbuf])
         self.show_all()
+        self.scrolledwindow2.set_visible(False)
 
     def on_iconview_actived(self, widget, index):
         print(widget, index)
@@ -613,17 +627,45 @@ class MainWindow(Gtk.ApplicationWindow):
         print(id, url)
         for awidget in self.trackview.get_children():
             self.trackview.remove(awidget)
-        self.db.add_tracks(id)
+        # self.db.add_tracks(id)
         for index, track in enumerate(self.db.get_tracks_from_feed(id)):
             print('---', index, '---')
             row = ListBoxRowWithData(track)
             row.show()
             self.trackview.add(row)
         widget.hide()
+        self.update_tracks(id)
         self.scrolledwindow1.set_visible(False)
         self.scrolledwindow2.set_visible(True)
         self.scrolledwindow2.show_all()
         self.statusbar.set_sensitive(True)
+
+    @async_method(on_done=lambda self, result, error:
+                  self.on_update_tracks_done(result, error))
+    def update_tracks(self, id):
+        result = None
+        print('update_tracks', id)
+        last_track = self.db.get_last_track_from_feed(id)
+        last_feed_track = self.db.get_last_track_date(id)
+        print(1, last_track['date'], last_feed_track)
+        if last_track['date'] is None or last_feed_track > last_track['date']:
+            self.db.add_tracks(id, last_track['date'])
+            result = (id, last_track['date'])
+            print('result', result)
+        print('---', last_track['date'], last_feed_track, '---')
+        return result
+
+    def on_update_tracks_done(self, result, error):
+        print(1, error, result)
+        if error is None and result is not None:
+            tracks = self.db.get_tracks_from_feed(*result)
+            for index, track in enumerate(tracks):
+                print('---', index, '---')
+                row = ListBoxRowWithData(track)
+                row.show()
+                self.trackview.add(row)
+            self.scrolledwindow2.set_visible(True)
+            self.scrolledwindow2.show_all()
 
     def on_button_back_clicked(self, widget):
         self.scrolledwindow2.set_visible(False)
@@ -705,6 +747,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def update_position(self):
         position = self.player.get_position()
+        fraction = float(position) / float(self.current_row.data['duration'])
+        if fraction > 0.90:
+            self.db.set_track_listened(self.current_row.data['id'])
+            self.current_row.set_listened(True)
         self.current_row.set_position(position)
         return self.player.status == Status.PLAYING
 
@@ -715,7 +761,8 @@ class MainWindow(Gtk.ApplicationWindow):
         if self.current_row.data['position'] > 0:
             self.player.set_position(self.current_row.data['position'])
         if self.current_row.data['duration'] == 0:
-            GLib.timeout_add(50, self.update_duration)
+            # GLib.timeout_add(50, self.update_duration)
+            self.update_duration()
         GLib.timeout_add_seconds(1, self.update_position)
         artists = [self.current_row.data['feed_name']]
         album = self.current_row.data['feed_name']
@@ -762,9 +809,9 @@ class MainWindow(Gtk.ApplicationWindow):
             else:
                 self.player.set_filename(os.path.join(comun.PODCASTS_DIR,
                                                       row.data['filename']))
-                value = get_selected_value_in_combo(self.combo_speed)
-                self.player.set_speed(value)
                 self.player.play()
+                self.on_combo_speed_changed(self.combo_speed)
+                # self.player.set_speed(value)
         else:
             url = row.data['url']
             ext = url.split('.')[-1]
@@ -786,7 +833,8 @@ class MainWindow(Gtk.ApplicationWindow):
         row.set_downloading(False)
 
     def on_downloader_ended(self, widget, row, filename):
-        self.db.set_track_downloaded(row.data['id'], filename.split('/')[-1])
+        filename = filename.split('/')[-1]
+        self.db.set_track_downloaded(row.data['id'], filename)
         ans = self.db.get_track_from_feed(row.data['id'])
         if ans is not None:
             row.set_data(ans)
@@ -853,6 +901,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.menu['remove'] = Gtk.Button()
         self.menu['remove'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
             name='list-remove-symbolic'), Gtk.IconSize.BUTTON))
+        self.menu['remove'].connect('clicked', self.on_remove_feed_clicked)
         hb.pack_end(self.menu['remove'])
 
         self.menu['add'] = Gtk.Button()
@@ -866,12 +915,22 @@ class MainWindow(Gtk.ApplicationWindow):
             name='media-record-symbolic'), Gtk.IconSize.BUTTON))
         hb.pack_end(self.menu['back'])
 
+    def on_remove_feed_clicked(self, widget):
+        if self.object is None:
+            selected = self.iconview.get_selected_items()[0]
+            model = self.iconview.get_model()
+            id = model.get_value(model.get_iter(selected), 0)
+            print(id)
+            if self.db.remove_feed(id):
+                model.remove(model.get_iter(selected))
+
+
     def on_add_feed_clicked(self, widget):
         if self.object is None:
             afd = AddFeedDialog(self)
             if afd.run() == Gtk.ResponseType.ACCEPT:
                 url = afd.get_url()
-                if not url.startswith('http://') or url.startswith('https://'):
+                if not url.startswith('http://') and not url.startswith('https://'):
                     url = 'http://' + url
                 self.add_feed(url)
             afd.destroy()

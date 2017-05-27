@@ -62,7 +62,7 @@ CONFIG_APP_DIR = os.path.join(CONFIG_DIR, APP)
 PODCASTS_DIR = os.path.join(CONFIG_APP_DIR, 'podcasts')
 THUMBNAILS_DIR = os.path.join(CONFIG_APP_DIR, 'thumbnails')
 CONFIG_FILE = os.path.join(CONFIG_APP_DIR, APPCONF)
-DATA_FILE = os.path.join(CONFIG_APP_DIR, APPDATA)
+DATABASE = os.path.join(CONFIG_APP_DIR, 'feeds.db')
 AUTOSTART_DIR = os.path.join(CONFIG_DIR, 'autostart')
 FILE_AUTO_START = os.path.join(AUTOSTART_DIR,
                                'upodocatcher-autostart.desktop')
@@ -108,9 +108,11 @@ STEP_BACKWARD_ICON = os.path.join(ICONDIR, 'step_backward.svg')
 FORWARD_ICON = os.path.join(ICONDIR, 'forward.svg')
 STEP_FORWARD_ICON = os.path.join(ICONDIR, 'step_forward.svg')
 NOIMAGE_ICON = os.path.join(ICONDIR, 'podcastnoimage.svg')
+LISTENED_ICON = os.path.join(ICONDIR, 'listened.svg')
+NOLISTENED_ICON = os.path.join(ICONDIR, 'nolistened.svg')
 DOWNLOAD_ANIM = os.path.join(ICONDIR, 'loading.gif')
 ICON = os.path.join(ICONDIR, 'upodcatcher.svg')
-DATABASE = os.path.join(DATADIR, 'feeds.db')
+
 
 '''
 f = open(CHANGELOG, 'r')
