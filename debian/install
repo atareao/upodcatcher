@@ -3,4 +3,5 @@ src/*.py /usr/share/upodcatcher
 debian/changelog /usr/share/upodcatcher
 data/upodcatcher.desktop /usr/share/applications
 data/icons/*.svg /usr/share/upodcatcher/icons
+data/icons/*.gif /usr/share/upodcatcher/icons
 data/icons/upodcatcher.svg /usr/share/icons

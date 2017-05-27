@@ -97,7 +97,6 @@ else:
     CHANGELOG = os.path.join(DEBIANDIR, 'changelog')
     FILE_AUTO_START_ORIG = os.path.join(os.path.normpath(os.path.join(
         ROOTDIR, '../data')), 'upodcatcher-autostart.desktop')
-UI_FILE = os.path.join(DATADIR, 'ui.xml')
 PLAY_ICON = os.path.join(ICONDIR, 'play.svg')
 PAUSE_ICON = os.path.join(ICONDIR, 'pause.svg')
 DOWNLOAD_ICON = os.path.join(ICONDIR, 'download.svg')
