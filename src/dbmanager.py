@@ -320,7 +320,6 @@ class DBManager():
         cursor.close()
         return False
 
-
     def set_track_downloaded(self, id, filename):
         cursor = self.db.cursor()
         try:

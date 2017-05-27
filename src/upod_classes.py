@@ -113,7 +113,7 @@ class Track(Base):
         self['duration'] = -1
         self['position'] = -1
         self['listened'] = 0
-        self['download'] = 0
+        self['downloaded'] = 0
         self['filename'] = None
         self['norder'] = -1
         self['feed_name'] = None
@@ -129,8 +129,8 @@ class Track(Base):
         self['url'] = data[5]
         self['duration'] = data[6]
         self['position'] = data[7]
-        self['listened'] = data[8]
-        self['download'] = data[9]
+        self['downloaded'] = data[8]
+        self['listened'] = data[9]
         self['filename'] = data[10]
         self['norder'] = data[11]
 

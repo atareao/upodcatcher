@@ -66,10 +66,13 @@ class Player(GObject.GObject):
         '''
         Get the status of the player
         '''
-        if self.player.get_state(Gst.CLOCK_TIME_NONE)[1] == Gst.State.PLAYING:
-            return Status.PLAYING
-        elif self.player.get_state(Gst.CLOCK_TIME_NONE)[1] == Gst.State.PAUSED:
-            return Status.PAUSED
+        if self.player is not None:
+            if self.player.get_state(Gst.CLOCK_TIME_NONE)[1] ==\
+                    Gst.State.PLAYING:
+                return Status.PLAYING
+            elif self.player.get_state(Gst.CLOCK_TIME_NONE)[1] ==\
+                    Gst.State.PAUSED:
+                return Status.PAUSED
         return Status.STOPPED
 
     def get_player(self):
@@ -99,7 +102,7 @@ class Player(GObject.GObject):
 
     def on_state_changed(self, bus, msg):
         old, new, pending = msg.parse_state_changed()
-        print('---', old, new, pending, '---')
+        # print('---', old, new, pending, '---')
 
     def set_filename(self, filename):
         if self.player is not None:
@@ -112,44 +115,46 @@ class Player(GObject.GObject):
         '''
         Play the player
         '''
-        self.player.set_state(Gst.State.PLAYING)
-        self.player.get_state(Gst.CLOCK_TIME_NONE)
-        self.player.get_by_name('removesilence').set_property(
-            'remove', self.removesilence)
-        self.player.get_by_name('volume').set_property('volume', self.volume)
-        self.player.get_by_name('equalizer').set_property(
-            'band0', self.equalizer['band0'])
-        self.player.get_by_name('equalizer').set_property(
-            'band1', self.equalizer['band1'])
-        self.player.get_by_name('equalizer').set_property(
-            'band2', self.equalizer['band2'])
-        self.player.get_by_name('equalizer').set_property(
-            'band3', self.equalizer['band3'])
-        self.player.get_by_name('equalizer').set_property(
-            'band4', self.equalizer['band4'])
-        self.player.get_by_name('equalizer').set_property(
-            'band5', self.equalizer['band5'])
-        self.player.get_by_name('equalizer').set_property(
-            'band6', self.equalizer['band6'])
-        self.player.get_by_name('equalizer').set_property(
-            'band7', self.equalizer['band7'])
-        self.player.get_by_name('equalizer').set_property(
-            'band8', self.equalizer['band8'])
-        self.player.get_by_name('equalizer').set_property(
-            'band9', self.equalizer['band9'])
-        pos = self.player.query_position(Gst.Format.TIME)[1]
-        self.player.seek(self.speed, Gst.Format.TIME, Gst.SeekFlags.FLUSH,
-                         Gst.SeekType.SET, pos, Gst.SeekType.NONE, -1)
-        self.status = Status.PLAYING
-        self.emit('started', self.get_position())
+        if self.player is not None:
+            self.player.set_state(Gst.State.PLAYING)
+            self.player.get_state(Gst.CLOCK_TIME_NONE)
+            self.player.get_by_name('removesilence').set_property(
+                'remove', self.removesilence)
+            self.player.get_by_name('volume').set_property('volume', self.volume)
+            self.player.get_by_name('equalizer').set_property(
+                'band0', self.equalizer['band0'])
+            self.player.get_by_name('equalizer').set_property(
+                'band1', self.equalizer['band1'])
+            self.player.get_by_name('equalizer').set_property(
+                'band2', self.equalizer['band2'])
+            self.player.get_by_name('equalizer').set_property(
+                'band3', self.equalizer['band3'])
+            self.player.get_by_name('equalizer').set_property(
+                'band4', self.equalizer['band4'])
+            self.player.get_by_name('equalizer').set_property(
+                'band5', self.equalizer['band5'])
+            self.player.get_by_name('equalizer').set_property(
+                'band6', self.equalizer['band6'])
+            self.player.get_by_name('equalizer').set_property(
+                'band7', self.equalizer['band7'])
+            self.player.get_by_name('equalizer').set_property(
+                'band8', self.equalizer['band8'])
+            self.player.get_by_name('equalizer').set_property(
+                'band9', self.equalizer['band9'])
+            pos = self.player.query_position(Gst.Format.TIME)[1]
+            self.player.seek(self.speed, Gst.Format.TIME, Gst.SeekFlags.FLUSH,
+                             Gst.SeekType.SET, pos, Gst.SeekType.NONE, -1)
+            self.status = Status.PLAYING
+            self.emit('started', self.get_position())
 
     def pause(self):
         '''
         Pause the player
         '''
-        self.player.set_state(Gst.State.PAUSED)
-        self.status = Status.PAUSED
-        self.emit('paused', self.get_position())
+        if self.player is not None:
+            self.player.set_state(Gst.State.PAUSED)
+            self.status = Status.PAUSED
+            self.emit('paused', self.get_position())
 
     def stop(self):
         '''
@@ -230,31 +235,37 @@ class Player(GObject.GObject):
         return self.speed
 
     def set_position(self, position):
-        self.player.get_state(Gst.CLOCK_TIME_NONE)
-        self.player.set_state(Gst.State.PAUSED)
-        try:
-            assert self.player.seek_simple(Gst.Format.TIME,
-                                           Gst.SeekFlags.FLUSH,
-                                           position * Gst.SECOND)
+        if self.player is not None:
             self.player.get_state(Gst.CLOCK_TIME_NONE)
-            pos = self.player.query_position(Gst.Format.TIME)[1]
-            self.player.seek(self.speed, Gst.Format.TIME, Gst.SeekFlags.FLUSH,
-                             Gst.SeekType.SET, pos, Gst.SeekType.NONE, -1)
-        except AssertionError as e:
-            print(e)
-        self.player.set_state(Gst.State.PLAYING)
+            self.player.set_state(Gst.State.PAUSED)
+            try:
+                assert self.player.seek_simple(Gst.Format.TIME,
+                                               Gst.SeekFlags.FLUSH,
+                                               position * Gst.SECOND)
+                self.player.get_state(Gst.CLOCK_TIME_NONE)
+                pos = self.player.query_position(Gst.Format.TIME)[1]
+                self.player.seek(self.speed, Gst.Format.TIME,
+                                 Gst.SeekFlags.FLUSH, Gst.SeekType.SET, pos,
+                                 Gst.SeekType.NONE, -1)
+            except AssertionError as e:
+                print(e)
+            self.player.set_state(Gst.State.PLAYING)
 
     def get_position(self):
-        self.player.get_state(Gst.CLOCK_TIME_NONE)
-        nanosecs = self.player.query_position(Gst.Format.TIME)[1]
-        position = float(nanosecs) / Gst.SECOND
-        return position
+        if self.player is not None:
+            self.player.get_state(Gst.CLOCK_TIME_NONE)
+            nanosecs = self.player.query_position(Gst.Format.TIME)[1]
+            position = float(nanosecs) / Gst.SECOND
+            return position
+        return 0
 
     def get_duration(self):
-        self.player.get_state(Gst.CLOCK_TIME_NONE)
-        duration_nanosecs = self.player.query_duration(Gst.Format.TIME)[1]
-        duration = float(duration_nanosecs) / Gst.SECOND
-        return duration
+        if self.player is not None:
+            self.player.get_state(Gst.CLOCK_TIME_NONE)
+            duration_nanosecs = self.player.query_duration(Gst.Format.TIME)[1]
+            duration = float(duration_nanosecs) / Gst.SECOND
+            return duration
+        return 0
 
 
 if __name__ == '__main__':

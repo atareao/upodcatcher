@@ -1,0 +1,5 @@
+src/upodcatcher /usr/bin
+src/*.py /usr/share/upodcatcher
+debian/changelog /usr/share/upodcatcher
+data/upodcatcher.desktop /usr/share/applications
+data/icons/*.svg /usr/share/icons

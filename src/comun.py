@@ -100,13 +100,7 @@ else:
 UI_FILE = os.path.join(DATADIR, 'ui.xml')
 PLAY_ICON = os.path.join(ICONDIR, 'play.svg')
 PAUSE_ICON = os.path.join(ICONDIR, 'pause.svg')
-LITTLE_PLAY_ICON = os.path.join(ICONDIR, 'lplay.svg')
-LITTLE_PAUSE_ICON = os.path.join(ICONDIR, 'lpause.svg')
 DOWNLOAD_ICON = os.path.join(ICONDIR, 'download.svg')
-BACKWARD_ICON = os.path.join(ICONDIR, 'backward.svg')
-STEP_BACKWARD_ICON = os.path.join(ICONDIR, 'step_backward.svg')
-FORWARD_ICON = os.path.join(ICONDIR, 'forward.svg')
-STEP_FORWARD_ICON = os.path.join(ICONDIR, 'step_forward.svg')
 NOIMAGE_ICON = os.path.join(ICONDIR, 'podcastnoimage.svg')
 LISTENED_ICON = os.path.join(ICONDIR, 'listened.svg')
 NOLISTENED_ICON = os.path.join(ICONDIR, 'nolistened.svg')
@@ -114,7 +108,6 @@ DOWNLOAD_ANIM = os.path.join(ICONDIR, 'loading.gif')
 ICON = os.path.join(ICONDIR, 'upodcatcher.svg')
 
 
-'''
 f = open(CHANGELOG, 'r')
 line = f.readline()
 f.close()
@@ -123,7 +116,7 @@ posf = line.find(')', pos)
 VERSION = line[pos + 1:posf].strip()
 if not is_package():
     VERSION = VERSION + '-src'
-'''
+
 try:
     current_locale, encoding = locale.getdefaultlocale()
     language = gettext.translation(APP, LANGDIR, [current_locale])
