@@ -22,6 +22,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import requests
+import gi
+try:
+    gi.require_version('GdkPixbuf', '2.0')
+except Exception as e:
+    print(e)
+    exit(1)
+from gi.repository import GdkPixbuf
+import base64
+import comun
+
+NOIMAGE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.NOIMAGE_ICON, 128, 128)
 
 
 def download_file(url, local_filename):
@@ -37,3 +48,27 @@ def download_file(url, local_filename):
         print(e)
     return False
 
+
+def select_value_in_combo(combo, value):
+    model = combo.get_model()
+    for i, item in enumerate(model):
+        if value == item[0]:
+            combo.set_active(i)
+            return
+    combo.set_active(0)
+
+
+def get_selected_value_in_combo(combo):
+    model = combo.get_model()
+    return model.get_value(combo.get_active_iter(), 0)
+
+
+def get_pixbuf_from_base64string(base64string):
+    if base64string is None:
+        return NOIMAGE
+    raw_data = base64.b64decode(base64string.encode())
+    pixbuf_loader = GdkPixbuf.PixbufLoader.new_with_mime_type("image/png")
+    pixbuf_loader.write(raw_data)
+    pixbuf_loader.close()
+    pixbuf = pixbuf_loader.get_pixbuf()
+    return pixbuf

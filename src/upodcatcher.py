@@ -43,7 +43,6 @@ from gi.repository import Notify
 import webbrowser
 import os
 import time
-import base64
 import requests
 import mutagen
 import comun
@@ -56,7 +55,10 @@ from dbus.mainloop.glib import DBusGMainLoop
 from player import Status
 from async import async_method
 from addfeeddialog import AddFeedDialog
-
+from searchfeeddialog import SearchFeedDialog
+from itunes import PodcastClient
+from foundpodcastsdialog import FoundPodcastsDDialog
+from utils import get_pixbuf_from_base64string
 
 PLAY = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PLAY_ICON, 32, 32)
 PAUSE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PAUSE_ICON, 32, 32)
@@ -67,31 +69,6 @@ LISTENED = GdkPixbuf.Pixbuf.new_from_file_at_size(
     comun.LISTENED_ICON, 16, 16)
 NOLISTENED = GdkPixbuf.Pixbuf.new_from_file_at_size(
     comun.NOLISTENED_ICON, 16, 16)
-
-
-def select_value_in_combo(combo, value):
-    model = combo.get_model()
-    for i, item in enumerate(model):
-        if value == item[0]:
-            combo.set_active(i)
-            return
-    combo.set_active(0)
-
-
-def get_selected_value_in_combo(combo):
-    model = combo.get_model()
-    return model.get_value(combo.get_active_iter(), 0)
-
-
-def get_pixbuf_from_base64string(base64string):
-    if base64string is None:
-        return NOIMAGE
-    raw_data = base64.b64decode(base64string.encode())
-    pixbuf_loader = GdkPixbuf.PixbufLoader.new_with_mime_type("image/png")
-    pixbuf_loader.write(raw_data)
-    pixbuf_loader.close()
-    pixbuf = pixbuf_loader.get_pixbuf()
-    return pixbuf
 
 
 class ItemPodcast():
@@ -1044,6 +1021,12 @@ class MainWindow(Gtk.ApplicationWindow):
         self.control['remove'].connect('clicked', self.on_remove_feed_clicked)
         self.feed_controls.pack_start(self.control['remove'],
                                       False, False, 0)
+        self.control['search'] = Gtk.Button()
+        self.control['search'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
+            name='system-search-symbolic'), Gtk.IconSize.BUTTON))
+        self.control['search'].connect('clicked', self.on_search_feed_clicked)
+        self.feed_controls.pack_start(self.control['search'],
+                                      False, False, 0)
 
         help_model = Gio.Menu()
 
@@ -1080,6 +1063,45 @@ class MainWindow(Gtk.ApplicationWindow):
         self.control['help'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
             name='open-menu-symbolic'), Gtk.IconSize.BUTTON))
         hb.pack_end(self.control['help'])
+
+    def on_search_feed_clicked(self, widget):
+        if self.object is None:
+            sfd = SearchFeedDialog(self)
+            if sfd.run() == Gtk.ResponseType.ACCEPT:
+                query = sfd.get_query()
+                self.get_root_window().set_cursor(
+                    Gdk.Cursor(Gdk.CursorType.WATCH))
+                self.search_feed(query)
+            sfd.destroy()
+
+    @async_method(on_done=lambda self,
+                  result, error: self.on_search_feed_done(result, error))
+    def search_feed(self, query):
+        try:
+            itp = PodcastClient()
+            return itp.search(query)
+        except Exception as e:
+            print(e)
+        return None
+
+    def on_search_feed_done(self, result, error):
+        if result is not None and len(result) > 0:
+            fpd = FoundPodcastsDDialog(self, result)
+            if fpd.run() == Gtk.ResponseType.ACCEPT:
+                selecteds = fpd.get_selecteds()
+                fpd.destroy()
+                for selected in selecteds:
+                    self.get_root_window().set_cursor(
+                        Gdk.Cursor(Gdk.CursorType.WATCH))
+                    print('adding', selected['url'])
+                    self.add_feed(selected['url'])
+            else:
+                fpd.destroy()
+                self.get_root_window().set_cursor(
+                    Gdk.Cursor(Gdk.CursorType.TOP_LEFT_ARROW))
+        else:
+            self.get_root_window().set_cursor(
+                Gdk.Cursor(Gdk.CursorType.WATCH))
 
     def on_remove_feed_clicked(self, widget):
         if self.object is None and\
