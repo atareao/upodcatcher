@@ -498,10 +498,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         self.notification = Notify.Notification.new('', '', None)
-        # Vertical box. Contains menu and PaneView
-        vbox = Gtk.VBox(False, 2)
+
         self.object = None
         self.active_row = None
+        self.updater = None
 
         self.player = Player()
         self.player.connect('started', self.on_player_started)
@@ -518,6 +518,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.sound_menu._sound_menu_raise = self._sound_menu_raise
         self.sound_menu._sound_menu_stop = self._sound_menu_stop
 
+        # Vertical box. Contains menu and PaneView
+        vbox = Gtk.VBox(False, 2)
         self.add(vbox)
         #
 
@@ -668,9 +670,13 @@ class MainWindow(Gtk.ApplicationWindow):
         self.get_root_window().set_cursor(
             Gdk.Cursor(Gdk.CursorType.TOP_LEFT_ARROW))
 
+    def kill_updater(self):
+        if self.updater is not None:
+            GLib.source_remove(self.updater)
+            self.updater = None
+
     def on_button_up_clicked(self, widget):
-        if self.player is not None:
-            self.player.pause()
+        self.pause()
         self.scrolledwindow2.set_visible(False)
         self.scrolledwindow1.show_all()
         self.scrolledwindow1.set_visible(True)
@@ -781,12 +787,14 @@ class MainWindow(Gtk.ApplicationWindow):
             self.control['play-pause'].set_tooltip_text(_('Pause'))
 
             self.trackview.get_selected_row().set_playing(True)
+            print('position-2',
+                  self.trackview.get_selected_row().data['position'])
             if self.trackview.get_selected_row().data['position'] > 0:
                 self.player.set_position(
                     self.trackview.get_selected_row().data['position'])
             if self.trackview.get_selected_row().data['duration'] == 0:
                 self.update_duration()
-            GLib.timeout_add_seconds(1, self.update_position)
+            self.updater = GLib.timeout_add_seconds(1, self.update_position)
             artists = [self.trackview.get_selected_row().data['feed_name']]
             album = self.trackview.get_selected_row().data['feed_name']
             title = self.trackview.get_selected_row().data['title']
@@ -807,17 +815,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def on_player_paused(self, player, position):
         print('**** player paused ****')
         if self.trackview.get_selected_row() is not None:
-            self.trackview.get_selected_row().set_playing(False)
 
-            self.control['play-pause'].get_child().set_from_gicon(
-                Gio.ThemedIcon(name='media-playback-start-symbolic'),
-                Gtk.IconSize.BUTTON)
-            self.control['play-pause'].set_tooltip_text(_('Play'))
-
-            position = self.player.get_position()
-            self.db.set_track_position(
-                self.trackview.get_selected_row().data['id'], position)
-            self.trackview.get_selected_row().set_position(position)
             artists = [self.trackview.get_selected_row().data['feed_name']]
             album = self.trackview.get_selected_row().data['feed_name']
             title = self.trackview.get_selected_row().data['title']
@@ -835,26 +833,61 @@ class MainWindow(Gtk.ApplicationWindow):
         print('-------- changed ----------',
               self.trackview.get_selected_row().data['id'])
 
+    def pause(self, row=None):
+        if row is None:
+            row = self.trackview.get_selected_row()
+        position = self.player.get_position()
+        print('--- position 3 ---', position)
+        self.db.set_track_position(row.data['id'], position)
+        row.set_position(position)
+        if self.player is not None:
+            self.player.pause()
+        self.kill_updater()
+
+        row.set_playing(False)
+
+        self.control['play-pause'].get_child().set_from_gicon(
+            Gio.ThemedIcon(name='media-playback-start-symbolic'),
+            Gtk.IconSize.BUTTON)
+        self.control['play-pause'].set_tooltip_text(_('Play'))
+
     def on_row_activated(self, widget, row):
-        print('-------- activated ----------', row.data['id'],
-              self.trackview.get_selected_row().data['id'])
+        print('=============================')
+        if self.active_row is not None:
+            print('--- activated ---',
+                  row.data['id'], self.active_row.data['id'])
+            print('--- activated ---',
+                  row.data['position'], self.active_row.data['position'])
+        else:
+            print('--- activated ---',
+                  row.data['id'])
+            print('--- activated ---',
+                  row.data['position'])
+        print('=============================')
         if self.active_row != row:
             if self.active_row is not None:
-                self.active_row.set_playing(False)
-                self.player.pause()
-            if row != self.trackview.get_selected_row():
-                self.trackview.get_selected_row().set_playing(False)
-                self.trackview.select_row(row)
+                self.pause(self.active_row)
             self.active_row = row
 
         if row.data['downloaded'] == 1 and row.data['filename'] is not None\
                 and os.path.exists(os.path.join(
                 comun.PODCASTS_DIR, row.data['filename'])):
             if self.trackview.get_selected_row().is_playing:
-                self.player.pause()
+                self.pause()
             else:
                 self.player.set_filename(os.path.join(comun.PODCASTS_DIR,
                                                       row.data['filename']))
+                fraction = (float(row.data['position']) /
+                            float(row.data['duration']))
+                self.control['position'].handler_block_by_func(
+                    self.on_position_button_changed)
+                self.control['position'].set_value(fraction)
+                self.control['position'].set_label('{0}%'.format(
+                    int(fraction * 100)))
+                print('true position', row.data['position'])
+                self.control['position'].handler_unblock_by_func(
+                    self.on_position_button_changed)
+
                 self.player.play()
                 # self.on_combo_speed_changed(self.combo_speed)
                 # self.player.set_speed(value)
