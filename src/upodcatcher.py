@@ -1009,6 +1009,12 @@ class MainWindow(Gtk.ApplicationWindow):
         self.feed_controls = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 5)
         hb.pack_start(self.feed_controls)
 
+        self.control['search'] = Gtk.Button()
+        self.control['search'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
+            name='system-search-symbolic'), Gtk.IconSize.BUTTON))
+        self.control['search'].connect('clicked', self.on_search_feed_clicked)
+        self.feed_controls.pack_start(self.control['search'],
+                                      False, False, 0)
         self.control['add'] = Gtk.Button()
         self.control['add'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
             name='list-add-symbolic'), Gtk.IconSize.BUTTON))
@@ -1020,12 +1026,6 @@ class MainWindow(Gtk.ApplicationWindow):
             name='list-remove-symbolic'), Gtk.IconSize.BUTTON))
         self.control['remove'].connect('clicked', self.on_remove_feed_clicked)
         self.feed_controls.pack_start(self.control['remove'],
-                                      False, False, 0)
-        self.control['search'] = Gtk.Button()
-        self.control['search'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
-            name='system-search-symbolic'), Gtk.IconSize.BUTTON))
-        self.control['search'].connect('clicked', self.on_search_feed_clicked)
-        self.feed_controls.pack_start(self.control['search'],
                                       False, False, 0)
 
         help_model = Gio.Menu()
