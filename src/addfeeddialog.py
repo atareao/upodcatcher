@@ -58,7 +58,7 @@ class AddFeedDialog(Gtk.Dialog):
         grid.set_margin_left(10)
         grid.set_margin_right(10)
         frame.add(grid)
-        grid.attach(Gtk.Label(_('Url') + ': '), 0, 0, 1, 1)
+        grid.attach(Gtk.Label(_('Feed') + ': '), 0, 0, 1, 1)
         self.entry = Gtk.Entry()
         self.entry.set_width_chars(30)
         grid.attach(self.entry, 1, 0, 1, 1)
