@@ -346,7 +346,8 @@ class MainApplication(Gtk.Application):
                 'http://www.facebook.com/elatareao')))
         self.add_action(create_action(
             'goto_donate',
-            callback=self.on_support_clicked))
+            callback=lambda x, y: webbrowser.open(
+                'https://www.atareao.es/donar/')))
         self.add_action(create_action(
             'about',
             callback=self.on_about_activate))
@@ -634,7 +635,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.play_controls.set_visible(True)
         self.feed_controls.set_visible(False)
         row = self.trackview.get_row_at_index(0)
+        self.trackview.handler_block_by_func(self.on_row_selected)
         self.trackview.select_row(row)
+        self.trackview.handler_unblock_by_func(self.on_row_selected)
 
     @async_method(on_done=lambda self, result, error:
                   self.on_update_tracks_done(result, error))
@@ -699,7 +702,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _sound_menu_pause(self, *args):
         """Pause"""
         if self.trackview.get_selected_row() is not None:
-            self.on_row_activated(None, self.self.trackview.get_selected_row())
+            self.on_row_activated(None, self.trackview.get_selected_row())
 
     def _sound_menu_next(self, *args):
         """Next"""
@@ -723,7 +726,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _sound_menu_raise(self):
         """Click on player"""
-        self.win_preferences.show()
+        self.show()
 
     def on_row_selected(self, widget, row):
         print('-------- selected ----------', row.data['id'],
@@ -838,6 +841,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if self.active_row != row:
             if self.active_row is not None:
                 self.active_row.set_playing(False)
+                self.player.pause()
             if row != self.trackview.get_selected_row():
                 self.trackview.get_selected_row().set_playing(False)
                 self.trackview.select_row(row)
