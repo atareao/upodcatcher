@@ -87,29 +87,17 @@ class FoundPodcastsDDialog(Gtk.Dialog):
         self.set_default_size(600, 600)
         self.set_icon_from_file(comun.ICON)
 
-        frame = Gtk.Frame()
-        frame.set_margin_top(10)
-        frame.set_margin_bottom(10)
-        frame.set_margin_left(10)
-        frame.set_margin_right(10)
-        self.get_content_area().add(frame)
-        vbox = Gtk.VBox(True, 10)
-        frame.add(vbox)
+        vbox = Gtk.VBox(True, 20)
+        self.get_content_area().add(vbox)
 
         scrolledwindow = Gtk.ScrolledWindow()
         scrolledwindow.set_policy(Gtk.PolicyType.AUTOMATIC,
-                                       Gtk.PolicyType.AUTOMATIC)
+                                  Gtk.PolicyType.AUTOMATIC)
         scrolledwindow.set_shadow_type(Gtk.ShadowType.ETCHED_OUT)
         scrolledwindow.set_size_request(300, 600)
         vbox.pack_start(scrolledwindow, True, True, 0)
 
         self.foundview = Gtk.ListBox()
-        '''
-        self.foundview.connect('row-activated', self.on_row_activated)
-        self.foundview.connect('row-selected', self.on_row_selected)
-        self.foundview.connect('selected-rows-changed',
-                               self.on_row_selected_changed)
-        '''
         self.foundview.set_selection_mode(Gtk.SelectionMode.SINGLE)
         scrolledwindow.add(self.foundview)
 

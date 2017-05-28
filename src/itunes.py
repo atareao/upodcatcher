@@ -22,7 +22,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import requests
-import pprint
 from urllib.parse import urljoin
 from upod_classes import Feed
 from dbmanager import create_base64
@@ -80,5 +79,6 @@ class PodcastClient(object):
 
 
 if __name__ == '__main__':
+    import pprint
     itp = PodcastClient()
     pprint.pprint(itp.search('ugeek', limit=20))

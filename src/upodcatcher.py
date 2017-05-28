@@ -208,8 +208,12 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         pixbuf = get_pixbuf_from_base64string(data['feed_image']).scale_simple(
             64, 64, GdkPixbuf.InterpType.BILINEAR)
         self.image.set_from_pixbuf(pixbuf)
+        if len(data['feed_name']) > 35:
+            feed_name = data['feed_name'][:32] + '...'
+        else:
+            feed_name = data['feed_name']
         self.label1.set_markup(
-            '<big><b>{0}</b></big>'.format(data['feed_name']))
+            '<big><b>{0}</b></big>'.format(feed_name))
         self.label2.set_text(data['title'])
         if data['listened'] == 1:
             self.listened.set_from_pixbuf(LISTENED)
