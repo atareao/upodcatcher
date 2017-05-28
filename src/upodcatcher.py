@@ -836,15 +836,16 @@ class MainWindow(Gtk.ApplicationWindow):
     def pause(self, row=None):
         if row is None:
             row = self.trackview.get_selected_row()
-        position = self.player.get_position()
-        print('--- position 3 ---', position)
-        self.db.set_track_position(row.data['id'], position)
-        row.set_position(position)
+        if row is not None:
+            position = self.player.get_position()
+            print('--- position 3 ---', position)
+            self.db.set_track_position(row.data['id'], position)
+            row.set_position(position)
+            row.set_playing(False)
+
         if self.player is not None:
             self.player.pause()
         self.kill_updater()
-
-        row.set_playing(False)
 
         self.control['play-pause'].get_child().set_from_gicon(
             Gio.ThemedIcon(name='media-playback-start-symbolic'),
