@@ -45,6 +45,7 @@ import os
 import time
 import base64
 import requests
+import mutagen
 import comun
 from comun import _
 from dbmanager import DBManager
@@ -887,8 +888,14 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def on_downloader_ended(self, widget, row, filename):
         if os.path.exists(filename):
+            filetype = mutagen.File(filename)
+            duration = filetype.info.length
             filename = filename.split('/')[-1]
+
             self.db.set_track_downloaded(row.data['id'], filename)
+            self.db.set_track_duration(row.data['id'], duration)
+
+            row.set_duration(duration)
             row.set_filename(filename)
             row.set_downloading(False)
             row.set_downloaded(True)
