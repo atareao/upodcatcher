@@ -1,8 +1,8 @@
-upodcatcher (0.2.0-0extras17.04.3) zesty; urgency=medium
+upodcatcher (0.2.0-0extras17.04.4) zesty; urgency=medium
 
   * Added searchs in iTunes
 
- -- Lorenzo Carbonell <lorenzo.carbonell.cerezo@gmail.com>  Sun, 28 May 2017 13:58:04 +0200
+ -- Lorenzo Carbonell <lorenzo.carbonell.cerezo@gmail.com>  Sun, 28 May 2017 14:05:35 +0200
 
 upodcatcher (0.1.1-0extras17.04.6) zesty; urgency=medium
 
