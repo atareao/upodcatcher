@@ -1180,20 +1180,24 @@ class MainWindow(Gtk.ApplicationWindow):
     def on_remove_feed_clicked(self, widget):
         if self.object is None and\
                 self.iconview.get_selected_items()[0] is not None:
+            if len(self.iconview.get_selected_items()) > 1:
+                msg = _('Are you sure to delete the feeds')
+            else:
+                msg = _('Are you sure to delete the feed')
             dialog = Gtk.MessageDialog(
                 self,
                 0,
                 Gtk.MessageType.WARNING,
                 Gtk.ButtonsType.OK_CANCEL,
-                _('Are you sure to delete the feed'))
+                msg)
             if dialog.run() == Gtk.ResponseType.OK:
                 dialog.destroy()
-                selected = self.iconview.get_selected_items()[0]
                 model = self.iconview.get_model()
-                id = model.get_value(model.get_iter(selected), 0)
-                print(id)
-                if self.db.remove_feed(id):
-                    model.remove(model.get_iter(selected))
+                for selected in self.iconview.get_selected_items():
+                    id = model.get_value(model.get_iter(selected), 0)
+                    print(id)
+                    if self.db.remove_feed(id):
+                        model.remove(model.get_iter(selected))
             else:
                 dialog.destroy()
 
