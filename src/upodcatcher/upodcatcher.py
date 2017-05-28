@@ -778,17 +778,17 @@ class MainWindow(Gtk.ApplicationWindow):
         self.show()
 
     def on_row_selected(self, widget, row):
-        print('-------- selected ----------', row.data['id'],
-              self.trackview.get_selected_row().data['id'])
         if row is not None and row.data['downloaded'] == 0:
+            print('-------- selected ----------', row.data['id'],
+                self.trackview.get_selected_row().data['id'])
             self.control['play-pause'].set_sensitive(False)
             self.control['speed'].set_sensitive(False)
             self.control['position'].set_sensitive(False)
+            self.on_row_activated(widget, row)
         else:
             self.control['play-pause'].set_sensitive(True)
             self.control['speed'].set_sensitive(True)
             self.control['position'].set_sensitive(True)
-        self.on_row_activated(widget, row)
 
     def update_duration(self):
         if self.trackview.get_selected_row() is not None:
@@ -804,7 +804,7 @@ class MainWindow(Gtk.ApplicationWindow):
             duration = self.trackview.get_selected_row().data['duration']
             if duration > 0:
                 fraction = float(position) / float(duration)
-                if fraction > 0.95:
+                if fraction >= 1.0:
                     self.db.set_track_listened(
                         self.trackview.get_selected_row().data['id'])
                     self.trackview.get_selected_row().set_listened(True)
