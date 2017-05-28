@@ -594,6 +594,7 @@ class MainWindow(Gtk.ApplicationWindow):
             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
              Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
         dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.set_current_folder(os.path.expanduser('~'))
         dialog.set_select_multiple(False)
         filter = Gtk.FileFilter()
         filter.set_name(_('Opml file'))
@@ -622,6 +623,7 @@ class MainWindow(Gtk.ApplicationWindow):
             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
              Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
         dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.set_current_folder(os.path.expanduser('~'))
         dialog.set_select_multiple(False)
         filter = Gtk.FileFilter()
         filter.set_name(_('Opml file'))
