@@ -59,6 +59,7 @@ from .searchfeeddialog import SearchFeedDialog
 from .itunes import PodcastClient
 from .foundpodcastsdialog import FoundPodcastsDDialog
 from .utils import get_pixbuf_from_base64string
+from .opmlparser import create_opml_from_urls, extract_rss_urls_from_opml
 
 PLAY = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PLAY_ICON, 32, 32)
 PAUSE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PAUSE_ICON, 32, 32)
@@ -477,6 +478,14 @@ class MainWindow(Gtk.ApplicationWindow):
         max_action.connect("change-state", self.on_maximize_toggle)
         self.add_action(max_action)
 
+        import_opml = Gio.SimpleAction.new('import_opml', None)
+        import_opml.connect('activate', self.on_import_opml_clicked)
+        self.add_action(import_opml)
+
+        export_opml = Gio.SimpleAction.new('export_opml', None)
+        export_opml.connect('activate', self.on_export_opml_clicked)
+        self.add_action(export_opml)
+
         self.clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         self.notification = Notify.Notification.new('', '', None)
 
@@ -577,6 +586,63 @@ class MainWindow(Gtk.ApplicationWindow):
         self.play_controls.set_visible(False)
         self.feed_controls.set_visible(True)
 
+    def on_import_opml_clicked(self, widget, action):
+        dialog = Gtk.FileChooserDialog(_(
+            'Select one opml file'),
+            self,
+            Gtk.FileChooserAction.OPEN,
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+             Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.set_select_multiple(False)
+        filter = Gtk.FileFilter()
+        filter.set_name(_('Opml file'))
+        filter.add_pattern('*.opml')
+        dialog.add_filter(filter)
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            filename = dialog.get_filename()
+            dialog.destroy()
+            print(filename)
+            with open(filename, 'r') as f:
+                opmlstring = f.read()
+                urls = extract_rss_urls_from_opml(opmlstring)
+                for url in urls:
+                    self.get_root_window().set_cursor(
+                        Gdk.Cursor(Gdk.CursorType.WATCH))
+                    self.add_feed(url)
+        else:
+            dialog.destroy()
+
+    def on_export_opml_clicked(self, widget, action):
+        dialog = Gtk.FileChooserDialog(_(
+            'Select one opml file'),
+            self,
+            Gtk.FileChooserAction.SAVE,
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+             Gtk.STOCK_OPEN, Gtk.ResponseType.OK))
+        dialog.set_default_response(Gtk.ResponseType.OK)
+        dialog.set_select_multiple(False)
+        filter = Gtk.FileFilter()
+        filter.set_name(_('Opml file'))
+        filter.add_pattern('*.opml')
+        dialog.add_filter(filter)
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            filename = dialog.get_filename()
+            dialog.destroy()
+            if not filename.endswith('.opml'):
+                filename += '.opml'
+            feeds = self.db.get_feeds()
+            urls = []
+            for feed in feeds:
+                urls.append(feed['url'])
+            opmlstring = create_opml_from_urls(urls)
+            with open(filename, 'w') as f:
+                f.write(opmlstring)
+        else:
+            dialog.destroy()
+
     def on_equalizer_value_changed(self, widget, value):
         print(widget, type(widget), value)
         widget.set_label('{0}\n17Hz'.format(int(value)))
@@ -664,10 +730,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.play_controls.set_visible(False)
         self.feed_controls.set_visible(True)
         self.object = None
-
-    def on_combo_speed_changed(self, combo):
-        value = get_selected_value_in_combo(combo)
-        self.player.set_speed(value)
 
     def _sound_menu_is_playing(self):
         return self.player.status == Status.PLAYING
@@ -975,7 +1037,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.control['previous'] = Gtk.Button()
         self.control['previous'].set_tooltip_text(_('Previous'))
         self.control['previous'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
-            name='pan-start-symbolic.symbolic'), Gtk.IconSize.BUTTON))
+            name='media-playback-start-symbolic-rtl'), Gtk.IconSize.BUTTON))
         self.control['previous'].connect('clicked',
                                          self._sound_menu_previous)
         self.play_controls.pack_start(self.control['previous'],
@@ -993,7 +1055,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.control['next'] = Gtk.Button()
         self.control['next'].set_tooltip_text(_('Next'))
         self.control['next'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
-            name='pan-end-symbolic.symbolic'), Gtk.IconSize.BUTTON))
+            name='media-playback-start-symbolic'), Gtk.IconSize.BUTTON))
         self.control['next'].connect('clicked',
                                      self._sound_menu_next)
         self.play_controls.pack_start(self.control['next'], False, False, 0)
@@ -1033,6 +1095,12 @@ class MainWindow(Gtk.ApplicationWindow):
                                       False, False, 0)
 
         help_model = Gio.Menu()
+
+        help_section0_model = Gio.Menu()
+        help_section0_model.append(_('Import opml'), 'win.import_opml')
+        help_section0_model.append(_('Export opml'), 'win.export_opml')
+        help_section0 = Gio.MenuItem.new_section(None, help_section0_model)
+        help_model.append_item(help_section0)
 
         help_section1_model = Gio.Menu()
         help_section1_model.append(_('Homepage'), 'app.goto_homepage')
