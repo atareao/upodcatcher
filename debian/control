@@ -2,7 +2,7 @@ Source: upodcatcher
 Section: utils
 Priority: extra
 Maintainer: Lorenzo Carbonell Cerezo <lorenzo.carbonell.cerezo@gmail.com>
-Build-Depends: debhelper (>= 9), python, python-distutils-extra, python-polib
+Build-Depends: debhelper (>= 9), python3, python3-dev, python3-distutils-extra
 Standards-Version: 3.9.5
 Homepage: http://www.atareao.es
 
