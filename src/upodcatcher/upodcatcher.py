@@ -1017,7 +1017,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.control['up'] = Gtk.Button()
         self.control['up'].set_tooltip_text(_('Goto feeds'))
         self.control['up'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
-            name='pan-up-symbolic.symbolic'), Gtk.IconSize.BUTTON))
+            name='go-up-symbolic'), Gtk.IconSize.BUTTON))
         self.control['up'].connect('clicked',
                                    self.on_button_up_clicked)
         self.play_controls.pack_start(self.control['up'],
@@ -1037,7 +1037,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.control['previous'] = Gtk.Button()
         self.control['previous'].set_tooltip_text(_('Previous'))
         self.control['previous'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
-            name='media-playback-start-symbolic-rtl'), Gtk.IconSize.BUTTON))
+            name='go-next-symbolic-rtl'), Gtk.IconSize.BUTTON))
         self.control['previous'].connect('clicked',
                                          self._sound_menu_previous)
         self.play_controls.pack_start(self.control['previous'],
@@ -1055,7 +1055,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.control['next'] = Gtk.Button()
         self.control['next'].set_tooltip_text(_('Next'))
         self.control['next'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
-            name='media-playback-start-symbolic'), Gtk.IconSize.BUTTON))
+            name='go-next-symbolic'), Gtk.IconSize.BUTTON))
         self.control['next'].connect('clicked',
                                      self._sound_menu_next)
         self.play_controls.pack_start(self.control['next'], False, False, 0)
