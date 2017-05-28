@@ -622,6 +622,10 @@ class MainWindow(Gtk.ApplicationWindow):
             row.show()
             self.trackview.add(row)
         widget.hide()
+
+        self.get_root_window().set_cursor(
+            Gdk.Cursor(Gdk.CursorType.WATCH))
+
         self.update_tracks(id)
         self.scrolledwindow1.set_visible(False)
         self.scrolledwindow2.set_visible(True)
@@ -657,6 +661,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.trackview.add(row)
             self.scrolledwindow2.set_visible(True)
             self.scrolledwindow2.show_all()
+        self.get_root_window().set_cursor(
+            Gdk.Cursor(Gdk.CursorType.TOP_LEFT_ARROW))
 
     def on_button_up_clicked(self, widget):
         if self.player is not None:
@@ -860,6 +866,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 downloader.connect('failed', self.on_downloader_failed,
                                    row, filename)
                 downloader.start()
+                self.get_root_window().set_cursor(
+                    Gdk.Cursor(Gdk.CursorType.WATCH))
                 row.set_downloading(True)
 
     def on_downloader_failed(self, widget, row, filename):
@@ -874,6 +882,9 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.db.set_track_no_downloaded(row.data['id'])
 
+        self.get_root_window().set_cursor(
+            Gdk.Cursor(Gdk.CursorType.ARROW))
+
     def on_downloader_ended(self, widget, row, filename):
         if os.path.exists(filename):
             filename = filename.split('/')[-1]
@@ -885,6 +896,9 @@ class MainWindow(Gtk.ApplicationWindow):
             self.control['play-pause'].set_sensitive(True)
             self.control['speed'].set_sensitive(True)
             self.control['position'].set_sensitive(True)
+
+        self.get_root_window().set_cursor(
+            Gdk.Cursor(Gdk.CursorType.ARROW))
 
     def on_speed_button_changed(self, widget, value):
         widget.set_label('{0}x'.format(int(value * 10) / 10))
@@ -1023,7 +1037,8 @@ class MainWindow(Gtk.ApplicationWindow):
         hb.pack_end(self.control['help'])
 
     def on_remove_feed_clicked(self, widget):
-        if self.object is None:
+        if self.object is None and\
+                self.iconview.get_selected_items()[0] is not None:
             dialog = Gtk.MessageDialog(
                 self,
                 0,
@@ -1049,6 +1064,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 if not url.startswith('http://') and\
                         not url.startswith('https://'):
                     url = 'http://' + url
+                self.get_root_window().set_cursor(
+                    Gdk.Cursor(Gdk.CursorType.WATCH))
                 self.add_feed(url)
             afd.destroy()
 
@@ -1061,9 +1078,9 @@ class MainWindow(Gtk.ApplicationWindow):
         print(url)
         request = requests.get(url)
         if request.status_code == 200:
-            id = self.db. add_feed(url)
+            id = self.db.add_feed(url)
+            print(id)
             if id is not None:
-                print(id)
                 feed = self.db.get_feed(id)
                 return feed
         return None
@@ -1080,6 +1097,8 @@ class MainWindow(Gtk.ApplicationWindow):
                                     result['image'],
                                     result['norder'],
                                     pixbuf])
+        self.get_root_window().set_cursor(
+            Gdk.Cursor(Gdk.CursorType.TOP_LEFT_ARROW))
 
     def on_toggled(self, widget, arg):
         if widget.get_active() is True:
