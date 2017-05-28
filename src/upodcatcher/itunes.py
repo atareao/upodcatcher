@@ -24,8 +24,8 @@
 import requests
 import locale
 from urllib.parse import urljoin
-from upod_classes import Feed
-from dbmanager import create_base64
+from .upod_classes import Feed
+from .dbmanager import create_base64
 
 BASE_URL = 'http://itunes.apple.com/'
 GENRES_PATH = '/WebObjects/MZStoreServices.woa/ws/genres'

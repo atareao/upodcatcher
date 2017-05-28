@@ -28,21 +28,21 @@ except Exception as e:
     print(e)
     exit(1)
 from gi.repository import Gtk
-import comun
-from comun import _
+from . import comun
+from .comun import _
 
 
-class AddFeedDialog(Gtk.Dialog):
+class SearchFeedDialog(Gtk.Dialog):
     """docstring for AddFeedDialog"""
     def __init__(self, window):
         #
-        Gtk.Dialog.__init__(self, '{0} | {1}'.format(comun.APPNAME,
-                                                     _('Add Podcast')),
-                            window,
-                            Gtk.DialogFlags.MODAL |
-                            Gtk.DialogFlags.DESTROY_WITH_PARENT,
-                            (Gtk.STOCK_CANCEL, Gtk.ResponseType.REJECT,
-                             Gtk.STOCK_OK, Gtk.ResponseType.ACCEPT))
+        Gtk.Dialog.__init__(self, '{0} | {1}'.format(
+            comun.APPNAME, _('Search podcast in iTunes')),
+            window,
+            Gtk.DialogFlags.MODAL |
+            Gtk.DialogFlags.DESTROY_WITH_PARENT,
+            (Gtk.STOCK_CANCEL, Gtk.ResponseType.REJECT,
+             Gtk.STOCK_OK, Gtk.ResponseType.ACCEPT))
         self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
         self.set_icon_from_file(comun.ICON)
 
@@ -58,20 +58,20 @@ class AddFeedDialog(Gtk.Dialog):
         grid.set_margin_left(10)
         grid.set_margin_right(10)
         frame.add(grid)
-        grid.attach(Gtk.Label(_('Feed') + ': '), 0, 0, 1, 1)
+        grid.attach(Gtk.Label(_('Name of the podcast') + ': '), 0, 0, 1, 1)
         self.entry = Gtk.Entry()
         self.entry.set_width_chars(30)
         grid.attach(self.entry, 1, 0, 1, 1)
 
         self.show_all()
 
-    def get_url(self):
+    def get_query(self):
         return self.entry.get_text()
 
 
 if __name__ == "__main__":
-    afd = AddFeedDialog()
-    if afd.run() == Gtk.ResponseType.ACCEPT:
-        print(afd.get_url())
-    afd.destroy()
+    sfd = SearchFeedDialog(None)
+    if sfd.run() == Gtk.ResponseType.ACCEPT:
+        print(sfd.get_query())
+    sfd.destroy()
     exit(0)

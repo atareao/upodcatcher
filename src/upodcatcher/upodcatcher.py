@@ -45,20 +45,20 @@ import os
 import time
 import requests
 import mutagen
-import comun
-from comun import _
-from dbmanager import DBManager
-from player import Player
-from downloader import Downloader
-from sound_menu import SoundMenuControls
+from . import comun
+from .comun import _
+from .dbmanager import DBManager
+from .player import Player
+from .downloader import Downloader
+from .sound_menu import SoundMenuControls
 from dbus.mainloop.glib import DBusGMainLoop
-from player import Status
-from async import async_method
-from addfeeddialog import AddFeedDialog
-from searchfeeddialog import SearchFeedDialog
-from itunes import PodcastClient
-from foundpodcastsdialog import FoundPodcastsDDialog
-from utils import get_pixbuf_from_base64string
+from .player import Status
+from .async import async_method
+from .addfeeddialog import AddFeedDialog
+from .searchfeeddialog import SearchFeedDialog
+from .itunes import PodcastClient
+from .foundpodcastsdialog import FoundPodcastsDDialog
+from .utils import get_pixbuf_from_base64string
 
 PLAY = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PLAY_ICON, 32, 32)
 PAUSE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PAUSE_ICON, 32, 32)

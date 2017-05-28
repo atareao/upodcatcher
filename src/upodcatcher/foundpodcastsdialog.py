@@ -30,9 +30,9 @@ except Exception as e:
     exit(-1)
 from gi.repository import Gtk
 from gi.repository import GdkPixbuf
-from utils import get_pixbuf_from_base64string
-import comun
-from comun import _
+from .utils import get_pixbuf_from_base64string
+from . import comun
+from .comun import _
 
 
 class PodcastFoundRow(Gtk.ListBoxRow):

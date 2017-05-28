@@ -29,14 +29,11 @@ __author__ = 'Lorenzo Carbonell <lorenzo.carbonell.cerezo@gmail.com>'
 __copyright__ = 'Copyright (c) 2017 Lorenzo Carbonell'
 __license__ = 'GPLV3'
 __url__ = 'http://www.atareao.es'
+USRDIR = '/usr'
 
-
-######################################
 
 def is_package():
-    return not os.path.dirname(os.path.abspath(__file__)).endswith('src')
-
-######################################
+    return (__file__.startswith(USRDIR) or os.getcwd().startswith(USRDIR))
 
 
 PARAMS = {'first-time': True,
@@ -80,8 +77,6 @@ if is_package():
     LANGDIR = os.path.join(ROOTDIR, 'locale-langpack')
     APPDIR = os.path.join(ROOTDIR, APP)
     ICONDIR = os.path.join(APPDIR, 'icons')
-    SOCIALDIR = os.path.join(APPDIR, 'social')
-    SOUNDIR = os.path.join(APPDIR, 'sounds')
     CHANGELOG = os.path.join(APPDIR, 'changelog')
     FILE_AUTO_START_ORIG = os.path.join(APPDIR,
                                         'upodcatcher-autostart.desktop')
@@ -89,11 +84,9 @@ else:
     ROOTDIR = os.path.dirname(__file__)
     LANGDIR = os.path.join(ROOTDIR, 'template1')
     APPDIR = os.path.join(ROOTDIR, APP)
-    DATADIR = os.path.normpath(os.path.join(ROOTDIR, '../data'))
-    ICONDIR = os.path.normpath(os.path.join(ROOTDIR, '../data/icons'))
-    SOCIALDIR = os.path.normpath(os.path.join(ROOTDIR, '../data/social'))
-    SOUNDIR = os.path.normpath(os.path.join(ROOTDIR, '../data/sounds'))
-    DEBIANDIR = os.path.normpath(os.path.join(ROOTDIR, '../debian'))
+
+    ICONDIR = os.path.normpath(os.path.join(ROOTDIR, '../../data/icons'))
+    DEBIANDIR = os.path.normpath(os.path.join(ROOTDIR, '../../debian'))
     CHANGELOG = os.path.join(DEBIANDIR, 'changelog')
     FILE_AUTO_START_ORIG = os.path.join(os.path.normpath(os.path.join(
         ROOTDIR, '../data')), 'upodcatcher-autostart.desktop')

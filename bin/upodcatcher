@@ -32,8 +32,8 @@ if __name__ == '__main__':
         sys.path.append(SHAREDIR)
     else:
         sys.path.append(os.path.normpath(os.path.join(os.getcwd(), '../src')))
-    ####################################################################
-    from upodcatcher import main
-    ####################################################################
+
+    from upodcatcher.upodcatcher import main
+
     main()
 exit(0)

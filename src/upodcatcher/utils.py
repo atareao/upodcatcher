@@ -30,7 +30,7 @@ except Exception as e:
     exit(1)
 from gi.repository import GdkPixbuf
 import base64
-import comun
+from . import comun
 
 NOIMAGE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.NOIMAGE_ICON, 128, 128)
 
@@ -47,6 +47,16 @@ def download_file(url, local_filename):
     except Exception as e:
         print(e)
     return False
+
+
+def read_remote_file(url):
+    try:
+        r = requests.get(url, stream=True)
+        if r.status_code == 200:
+            return r.text
+    except Exception as e:
+        print(e)
+    return ''
 
 
 def select_value_in_combo(combo, value):

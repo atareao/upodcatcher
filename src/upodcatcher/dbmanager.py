@@ -22,7 +22,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sqlite3
-import comun
+from . import comun
 import requests
 import feedparser
 import io
@@ -30,7 +30,7 @@ import os
 import base64
 from PIL import Image
 from dateutil.parser import parse
-from upod_classes import Feed, Track
+from .upod_classes import Feed, Track
 
 SQLStartString = '''
 DROP TABLE if exists FEEDS;
