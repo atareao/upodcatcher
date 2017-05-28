@@ -145,8 +145,10 @@ def create_base64(image_url):
 
 class DBManager():
     def __init__(self, restart=False):
-        if not os.path.exists(comun.DATADIR):
-            os.makedirs(comun.DATADIR)
+        if not os.path.exists(comun.CONFIG_APP_DIR):
+            os.makedirs(comun.CONFIG_APP_DIR)
+        if not os.path.exists(comun.DATABASE):
+            restart = True
         self.db = sqlite3.connect(comun.DATABASE, check_same_thread=False)
         cursor = self.db.cursor()
         if restart is True:
