@@ -93,6 +93,8 @@ else:
 PLAY_ICON = os.path.join(ICONDIR, 'play.svg')
 PAUSE_ICON = os.path.join(ICONDIR, 'pause.svg')
 DOWNLOAD_ICON = os.path.join(ICONDIR, 'download.svg')
+DELETE_ICON = os.path.join(ICONDIR, 'delete.svg')
+INFO_ICON = os.path.join(ICONDIR, 'info.svg')
 NOIMAGE_ICON = os.path.join(ICONDIR, 'podcastnoimage.svg')
 LISTENED_ICON = os.path.join(ICONDIR, 'listened.svg')
 NOLISTENED_ICON = os.path.join(ICONDIR, 'nolistened.svg')

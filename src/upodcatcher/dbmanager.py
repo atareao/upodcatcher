@@ -47,6 +47,8 @@ CREATE TABLE if not exists FEEDS (
     URL TEXT UNIQUE NOT NULL,
     TITLE TEXT UNIQUE NOT NULL,
     IMAGE TEXT,
+    LINK TEXT DEFAULT '',
+    DESCRIPTION TEXT DEFAULT '',
     NORDER INTEGER);
 CREATE TABLE if not exists LISTS (
     ID INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
@@ -59,6 +61,8 @@ CREATE TABLE if not exists TRACKS (
     DATE TEXT NOT NULL,
     TITLE TEXT NOT NULL,
     URL TEXT UNIQUE NOT NULL,
+    LINK TEXT DEFAULT '',
+    DESCRIPTION TEXT DEFAULT '',
     DURATION INTEGER NOT NULL DEFAULT 0,
     POSITION INTEGER NOT NULL DEFAULT 0,
     DOWNLOADED INTEGER NOT NULL DEFAULT 0,
@@ -82,6 +86,8 @@ CREATE VIEW if not exists TRACKS_FEED_VIEW AS
         TRACKS.DATE,
         TRACKS.TITLE,
         TRACKS.URL,
+        TRACKS.LINK,
+        TRACKS.DESCRIPTION,
         TRACKS.DURATION,
         TRACKS.POSITION,
         TRACKS.DOWNLOADED,
@@ -102,6 +108,8 @@ CREATE VIEW if not exists TRACKS_LIST_VIEW AS
         TRACKS.DATE,
         TRACKS.TITLE,
         TRACKS.URL,
+        TRACKS.LINK,
+        TRACKS.DESCRIPTION,
         TRACKS.DURATION,
         LIST.POSITION,
         TRACKS.DOWNLOADED,
@@ -185,12 +193,15 @@ class DBManager():
             title = d.feed.title
             image_url = d.feed.image.url
             image = create_base64(image_url)
+            link = d.feed.link
+            description = d.feed.description
             norder = self.get_max_norder('FEEDS')
             cursor = self.db.cursor()
             try:
                 norder += 1
-                cursor.execute('''INSERT INTO FEEDS(URL, TITLE, IMAGE, NORDER)
-     VALUES(?, ?, ?, ?)''', (url, title, image, norder))
+                cursor.execute('''INSERT INTO FEEDS(URL, TITLE, IMAGE, LINK,
+ DESCRIPTION, NORDER) VALUES(?, ?, ?, ?, ?, ?)''', (url, title, image, link,
+ description, norder))
                 self.db.commit()
                 ans = cursor.lastrowid
             except sqlite3.IntegrityError as e:
@@ -229,6 +240,10 @@ class DBManager():
             norder = self.get_max_norder('TRACKS')
             norder2 = self.get_max_norder_in_list(1)
             for index, entry in enumerate(d.entries):
+                print('=============================')
+                print(entry)
+                print(entry.itunes_duration)
+                print('=============================')
                 norder += 1
                 norder2 += 1
                 print(index)
@@ -236,24 +251,25 @@ class DBManager():
                 date = parse(entry.published).strftime('%Y%m%dT%H%M%S')
                 title = entry.title
                 url = entry.enclosures[0]['url']
+                link = entry.link
+                description = entry.description
                 filename = None
                 duration = 0
                 position = 0
                 if upperthan is None or upperthan > date:
                     try:
                         cursor.execute('''INSERT INTO TRACKS(FEED_ID, IDEN,
- DATE, TITLE, URL, DURATION, POSITION, FILENAME, NORDER) VALUES(?, ?, ?, ?, ?,
- ?, ?, ?, ?)''',
-                                       (feed_id, iden, date, title, url,
-                                        duration, position, filename, norder))
+ DATE, TITLE, URL, LINK, DESCRIPTION, DURATION, POSITION, FILENAME, NORDER)
+ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                                       (feed_id, iden, date, title, url, link,
+                                        description, duration, position,
+                                        filename, norder))
                         track_id = cursor.lastrowid
-                        cursor.execute('''INSERT INTO LIST(LIST_ID, TRACK_ID,
-     POSITION, NORDER) VALUES(?, ?, ?, ?)''', (1, track_id, position, norder2))
                     except Exception as e:
                         print('---', e, '---')
             self.db.commit()
             cursor.close()
-            return cursor.lastrowid
+            return track_id
         return None
 
     def set_track_duration(self, id, duration):

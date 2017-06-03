@@ -72,6 +72,8 @@ class Feed(Base):
         self['url'] = None
         self['title'] = None
         self['image'] = None
+        self['link'] = ''
+        self['description'] = ''
         self['norder'] = -1
 
     def set(self, data):
@@ -79,7 +81,9 @@ class Feed(Base):
         self['url'] = data[1]
         self['title'] = data[2]
         self['image'] = data[3]
-        self['norder'] = data[4]
+        self['link'] = data[4]
+        self['description'] = data[5]
+        self['norder'] = data[6]
 
 
 class List(Base):
@@ -110,6 +114,8 @@ class Track(Base):
         self['date'] = None
         self['title'] = None
         self['url'] = None
+        self['link'] = ''
+        self['description'] = ''
         self['duration'] = -1
         self['position'] = -1
         self['listened'] = 0
@@ -127,23 +133,23 @@ class Track(Base):
         self['date'] = data[3]
         self['title'] = data[4]
         self['url'] = data[5]
-        self['duration'] = data[6]
-        self['position'] = data[7]
-        self['downloaded'] = data[8]
-        self['listened'] = data[9]
-        self['filename'] = data[10]
-        self['norder'] = data[11]
+        self['link'] = data[6]
+        self['description'] = data[7]
+        self['duration'] = data[8]
+        self['position'] = data[9]
+        self['downloaded'] = data[10]
+        self['listened'] = data[11]
+        self['filename'] = data[12]
+        self['norder'] = data[13]
 
     def set_from_tracks_feed_view(self, data):
         self.set(data)
-        self['feed_name'] = data[12]
-        self['feed_image'] = data[13]
+        self['feed_name'] = data[14]
+        self['feed_image'] = data[15]
 
     def set_from_tracks_list_view(self, data):
-        self.set(data)
-        self['feed_name'] = data[12]
-        self['feed_image'] = data[13]
-        self['list_id'] = data[14]
+        self.set_from_tracks_feed_view(data)
+        self['list_id'] = data[16]
 
 
 if __name__ == '__main__':

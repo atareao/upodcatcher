@@ -14,8 +14,8 @@
    viewBox="0 0 25.399999 25.399999"
    version="1.1"
    id="svg8"
-   sodipodi:docname="pause.svg"
-   inkscape:version="0.92.1 r15371">
+   inkscape:version="0.92.1 r15371"
+   sodipodi:docname="delete.svg">
   <defs
      id="defs2" />
   <sodipodi:namedview
@@ -25,9 +25,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.979899"
-     inkscape:cx="-12.15736"
-     inkscape:cy="81.476452"
+     inkscape:zoom="1.609375"
+     inkscape:cx="227.59801"
+     inkscape:cy="20.153765"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -45,7 +45,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title />
+        <dc:title></dc:title>
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -54,10 +54,16 @@
      inkscape:groupmode="layer"
      id="layer1"
      transform="translate(0,-271.60001)">
-    <path
-       inkscape:connector-curvature="0"
-       id="path3707"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:medium;line-height:1.25;font-family:FontAwesome;-inkscape-font-specification:FontAwesome;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.61072046"
-       d="m 23.169494,274.70298 v 19.19407 q 0,0.35444 -0.259011,0.61345 -0.259011,0.25901 -0.613447,0.25901 h -6.979662 q -0.354436,0 -0.613447,-0.25901 -0.259011,-0.25901 -0.259011,-0.61345 v -19.19407 q 0,-0.35443 0.259011,-0.61344 0.259011,-0.25901 0.613447,-0.25901 h 6.979662 q 0.354436,0 0.613447,0.25901 0.259011,0.25901 0.259011,0.61344 z m -12.214409,0 v 19.19407 q 0,0.35444 -0.259011,0.61345 -0.259011,0.25901 -0.613447,0.25901 H 3.1029647 q -0.354436,0 -0.6134469,-0.25901 -0.2590109,-0.25901 -0.2590109,-0.61345 v -19.19407 q 0,-0.35443 0.2590109,-0.61344 0.2590109,-0.25901 0.6134469,-0.25901 h 6.9796623 q 0.354436,0 0.613447,0.25901 0.259011,0.25901 0.259011,0.61344 z" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:26.93934441px;line-height:1.25;font-family:FontAwesome;-inkscape-font-specification:FontAwesome;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.25255632"
+       x="2.1166861"
+       y="293.9212"
+       id="text4577"><tspan
+         sodipodi:role="line"
+         id="tspan4575"
+         x="2.1166861"
+         y="293.9212"
+         style="fill:#000000;fill-opacity:1;stroke-width:0.25255632"></tspan></text>
   </g>
 </svg>
