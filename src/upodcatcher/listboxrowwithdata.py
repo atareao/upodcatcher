@@ -46,7 +46,6 @@ INFO = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.INFO_ICON, 16, 16)
 PAUSE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.PAUSE_ICON, 32, 32)
 DOWNLOAD = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.DOWNLOAD_ICON, 32, 32)
 DOWNLOAD_ANIM = GdkPixbuf.PixbufAnimation.new_from_file(comun.DOWNLOAD_ANIM)
-NOIMAGE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.NOIMAGE_ICON, 128, 128)
 LDOWNLOAD = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.DOWNLOAD_ICON, 16, 16)
 LDELETE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.DELETE_ICON, 16, 16)
 LISTENED = GdkPixbuf.Pixbuf.new_from_file_at_size(
