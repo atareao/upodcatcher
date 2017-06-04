@@ -58,6 +58,12 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
     __gsignals__ = {
         'button_play_pause_clicked': (GObject.SIGNAL_RUN_FIRST,
                                       GObject.TYPE_NONE, ()),
+        'button_info_clicked': (GObject.SIGNAL_RUN_FIRST,
+                                GObject.TYPE_NONE, ()),
+        'button_download_clicked': (GObject.SIGNAL_RUN_FIRST,
+                                    GObject.TYPE_NONE, ()),
+        'button_listened_clicked': (GObject.SIGNAL_RUN_FIRST,
+                                    GObject.TYPE_NONE, ()),
         'end': (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
     }
 
@@ -71,79 +77,77 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         self.image.set_margin_bottom(5)
         self.image.set_margin_left(5)
         self.image.set_margin_right(5)
-        grid.attach(self.image, 0, 0, 5, 5)
+        grid.attach(self.image, 0, 0, 4, 4)
 
         self.label1 = Gtk.Label()
         self.label1.set_margin_top(5)
         self.label1.set_alignment(0, 0.5)
-        grid.attach(self.label1, 5, 0, 1, 1)
+        grid.attach(self.label1, 4, 0, 1, 1)
 
         self.label2 = Gtk.Label()
         self.label2.set_valign(Gtk.Align.FILL)
         self.label2.set_line_wrap(True)
         self.label2.set_alignment(0, 0.5)
-        grid.attach(self.label2, 5, 1, 1, 2)
+        grid.attach(self.label2, 4, 1, 1, 1)
 
         self.label3 = Gtk.Label()
         self.label3.set_alignment(0, 0.5)
-        grid.attach(self.label3, 5, 3, 1, 1)
+        grid.attach(self.label3, 4, 2, 1, 1)
 
         self.label4 = Gtk.Label()
         self.label4.set_alignment(0, 0.5)
         self.label4.set_margin_right(5)
         self.label4.set_halign(Gtk.Align.END)
-        grid.attach(self.label4, 6, 3, 1, 1)
+        grid.attach(self.label4, 5, 2, 1, 1)
 
         self.button_listened = Gtk.Button()
         self.button_listened.set_name('button')
-        self.button_listened.set_margin_top(5)
-        self.button_listened.set_margin_bottom(5)
-        self.button_listened.set_margin_left(5)
-        self.button_listened.set_margin_right(5)
+        self.button_listened.connect('clicked',
+                                     self.on_button_clicked,
+                                     'listened')
 
         self.listened = Gtk.Image()
         self.listened.set_from_pixbuf(NOLISTENED)
         self.listened.set_margin_left(5)
         self.button_listened.add(self.listened)
-        grid.attach(self.button_listened, 7, 0, 1, 1)
+        grid.attach(self.button_listened, 6, 0, 1, 1)
 
         self.button_download = Gtk.Button()
         self.button_download.set_name('button')
-        self.button_download.set_margin_top(5)
-        self.button_download.set_margin_bottom(5)
-        self.button_download.set_margin_left(5)
-        self.button_download.set_margin_right(5)
+        self.button_download.connect('clicked',
+                                     self.on_button_clicked,
+                                     'download')
 
         self.download = Gtk.Image()
         self.download.set_from_pixbuf(LDOWNLOAD)
         self.download.set_margin_left(5)
         self.button_download.add(self.download)
-        grid.attach(self.button_download, 7, 1, 1, 1)
+        grid.attach(self.button_download, 6, 1, 1, 1)
 
         self.button_info = Gtk.Button()
         self.button_info.set_name('button')
-        self.button_info.set_margin_top(5)
-        self.button_info.set_margin_bottom(5)
-        self.button_info.set_margin_left(5)
-        self.button_info.set_margin_right(5)
+        self.button_info.connect('clicked',
+                                 self.on_button_clicked,
+                                 'info')
 
         info = Gtk.Image()
         info.set_from_pixbuf(INFO)
         info.set_margin_left(5)
         self.button_info.add(info)
-        grid.attach(self.button_info, 7, 2, 1, 1)
+        grid.attach(self.button_info, 6, 2, 1, 1)
 
         self.progressbar = Gtk.ProgressBar()
         self.progressbar.set_margin_bottom(5)
         self.progressbar.set_valign(Gtk.Align.CENTER)
         self.progressbar.set_hexpand(True)
         self.progressbar.set_margin_right(5)
-        grid.attach(self.progressbar, 5, 4, 2, 1)
+        grid.attach(self.progressbar, 4, 3, 2, 1)
 
         self.button_play_pause = Gtk.Button()
         self.button_play_pause.set_name('button')
         self.button_play_pause.connect('clicked',
-                                       self.on_button_play_pause_clicked)
+                                       self.on_button_clicked,
+                                       'play_pause')
         self.button_play_pause.set_margin_top(5)
         self.button_play_pause.set_margin_bottom(5)
         self.button_play_pause.set_margin_left(5)
@@ -151,7 +155,7 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         self.play_pause = Gtk.Image()
         self.play_pause.set_margin_left(5)
         self.button_play_pause.add(self.play_pause)
-        grid.attach(self.button_play_pause, 8, 0, 5, 5)
+        grid.attach(self.button_play_pause, 7, 0, 4, 4)
 
         self.is_playing = False
         self.is_downloading = False
@@ -159,12 +163,22 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         self.index = index
         self.set_data(data)
 
+    def can_play(self):
+        return self.is_downloading is False and self.is_downloaded is True
+
     def click_button_play(self):
         if self.is_downloaded is True:
             self.emit('button_play_pause_clicked')
 
-    def on_button_play_pause_clicked(self, widget):
-        self.emit('button_play_pause_clicked')
+    def on_button_clicked(self, widget, button_name):
+        if button_name == 'info':
+            self.emit('button_info_clicked')
+        elif button_name == 'play_pause':
+            self.emit('button_play_pause_clicked')
+        elif button_name == 'download':
+            self.emit('button_download_clicked')
+        elif button_name == 'listened':
+            self.emit('button_listened_clicked')
 
     def emit(self, *args):
         GLib.idle_add(GObject.GObject.emit, self, *args)
@@ -191,7 +205,7 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
             self.button_play_pause.set_sensitive(False)
 
     def set_playing(self, playing):
-        print(playing)
+        print('id', self.index, 'is_playing', playing)
         self.is_playing = playing
         if self.is_playing is True:
             self.play_pause.set_from_pixbuf(PAUSE)
@@ -231,10 +245,6 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         self.data['filename'] = filename
 
     def set_data(self, data):
-        print('============================')
-        # print(data)
-        print(data['id'], 'listened', data['listened'], type(data['listened']))
-        print('============================')
         self.data = data
         pixbuf = get_pixbuf_from_base64string(data['feed_image']).scale_simple(
             64, 64, GdkPixbuf.InterpType.BILINEAR)

@@ -58,6 +58,7 @@ from .foundpodcastsdialog import FoundPodcastsDDialog
 from .utils import get_pixbuf_from_base64string
 from .opmlparser import create_opml_from_urls, extract_rss_urls_from_opml
 from .listboxrowwithdata import ListBoxRowWithData
+from .showinfodialog import ShowInfoDialog
 
 
 CSS = '''
@@ -103,14 +104,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def __init__(self, app, afile=None):
         Gtk.ApplicationWindow.__init__(self, application=app)
-        '''
-        dbus.set_default_main_loop(dbus.mainloop.glib.DBusGMainLoop())
-        bus = dbus.SessionBus()
-        if bus.request_name('es.atareao.upodcatcher') !=\
-                dbus.bus.REQUEST_NAME_REPLY_PRIMARY_OWNER:
-            print("application already running")
-            #exit(0)
-        '''
 
         self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
         self.set_icon_from_file(comun.ICON)
@@ -165,19 +158,23 @@ class MainWindow(Gtk.ApplicationWindow):
         # Init Toolbar
         # self.init_toolbar()
         #
-        self.scrolledwindow1 = Gtk.ScrolledWindow()
-        self.scrolledwindow1.set_policy(Gtk.PolicyType.AUTOMATIC,
-                                        Gtk.PolicyType.AUTOMATIC)
-        self.scrolledwindow1.set_shadow_type(Gtk.ShadowType.ETCHED_OUT)
-        self.scrolledwindow1.set_visible(True)
-        vbox.pack_start(self.scrolledwindow1, True, True, 0)
+        self.stack = Gtk.Stack.new()
+        vbox.pack_start(self.stack, True, True, 0)
 
-        self.scrolledwindow2 = Gtk.ScrolledWindow()
-        self.scrolledwindow2.set_policy(Gtk.PolicyType.AUTOMATIC,
-                                        Gtk.PolicyType.AUTOMATIC)
-        self.scrolledwindow2.set_shadow_type(Gtk.ShadowType.ETCHED_OUT)
-        vbox.pack_start(self.scrolledwindow2, True, True, 0)
-        self.scrolledwindow2.set_visible(False)
+        scrolledwindow1 = Gtk.ScrolledWindow()
+        scrolledwindow1.set_policy(Gtk.PolicyType.AUTOMATIC,
+                                   Gtk.PolicyType.AUTOMATIC)
+        scrolledwindow1.set_shadow_type(Gtk.ShadowType.ETCHED_OUT)
+        scrolledwindow1.set_visible(True)
+        self.stack.add_named(scrolledwindow1, 'feeds')
+
+        scrolledwindow2 = Gtk.ScrolledWindow()
+        scrolledwindow2.set_policy(Gtk.PolicyType.AUTOMATIC,
+                                   Gtk.PolicyType.AUTOMATIC)
+        scrolledwindow2.set_shadow_type(Gtk.ShadowType.ETCHED_OUT)
+        scrolledwindow2.set_visible(True)
+        self.stack.add_named(scrolledwindow2, 'tracks')
+        self.stack.set_transition_type(Gtk.StackTransitionType.UNDER_DOWN)
 
         self.storefeeds = Gtk.ListStore(int,
                                         str,
@@ -199,7 +196,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.iconview.set_item_padding(0)
         self.iconview.connect('item-activated',
                               self.on_iconview_actived)
-        self.scrolledwindow1.add(self.iconview)
+        scrolledwindow1.add(self.iconview)
 
         self.trackview = Gtk.ListBox()
         self.trackview.connect('row-activated', self.on_row_activated)
@@ -208,7 +205,7 @@ class MainWindow(Gtk.ApplicationWindow):
                                self.on_row_selected_changed)
         # self.trackview.set_activate_on_single_click(False)
         self.trackview.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        self.scrolledwindow2.add(self.trackview)
+        scrolledwindow2.add(self.trackview)
 
         self.db = DBManager(False)
         for feed in self.db.get_feeds():
@@ -226,7 +223,8 @@ class MainWindow(Gtk.ApplicationWindow):
                                     pixbuf])
         self.load_css()
         self.show_all()
-        self.scrolledwindow2.set_visible(False)
+        self.stack.set_visible_child_name('feeds')
+        self.stack.get_visible_child().show_all()
         self.play_controls.set_visible(False)
         self.feed_controls.set_visible(True)
 
@@ -248,7 +246,6 @@ class MainWindow(Gtk.ApplicationWindow):
         if response == Gtk.ResponseType.OK:
             filename = dialog.get_filename()
             dialog.destroy()
-            print(filename)
             with open(filename, 'r') as f:
                 opmlstring = f.read()
                 urls = extract_rss_urls_from_opml(opmlstring)
@@ -290,7 +287,6 @@ class MainWindow(Gtk.ApplicationWindow):
             dialog.destroy()
 
     def on_equalizer_value_changed(self, widget, value):
-        print(widget, type(widget), value)
         widget.set_label('{0}\n17Hz'.format(int(value)))
 
     def on_maximize_toggle(self, action, value):
@@ -299,6 +295,24 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.maximize()
             else:
                 self.unmaximize()
+
+    def on_row_listened(self, widget, row):
+        listened = not (row.data['listened'] == 1)
+        row.set_listened(listened)
+        if listened:
+            self.db.set_track_listened(row.data['id'])
+        else:
+            self.db.set_track_no_listened(row.data['id'])
+
+    def on_row_info(self, widget, row):
+        sid = ShowInfoDialog(self,
+                             row.data['feed_name'],
+                             row.data['title'],
+                             row.data['link'],
+                             row.data['description'])
+        sid.run()
+        sid.hide()
+        sid.destroy()
 
     def on_row_play(self, widget, row):
         print('old',
@@ -323,17 +337,12 @@ class MainWindow(Gtk.ApplicationWindow):
             self.control['position'].set_value(fraction)
             self.control['position'].set_label('{0}%'.format(
                 int(fraction * 100)))
-            print('true position', self.active_row.data['position'])
             self.control['position'].handler_unblock_by_func(
                 self.on_position_button_changed)
-            #
             self.control['play-pause'].get_child().set_from_gicon(
                 Gio.ThemedIcon(name='media-playback-pause-symbolic'),
                 Gtk.IconSize.BUTTON)
             self.control['play-pause'].set_tooltip_text(_('Pause'))
-
-            print('position-2', self.active_row.data['position'])
-
             if self.active_row.data['position'] > 0:
                 self.player.set_position(
                     self.active_row.data['position'])
@@ -379,22 +388,18 @@ class MainWindow(Gtk.ApplicationWindow):
                                        self.active_row.data['position'])
 
     def on_iconview_actived(self, widget, index):
-        print(widget, index)
         model = widget.get_model()
         selected = widget.get_selected_items()[0]
         id = model.get_value(model.get_iter(selected), 0)
-
         self.object = self.db.get_feed(id)
-
-        url = model.get_value(model.get_iter(selected), 1)
-        print(id, url)
         for awidget in self.trackview.get_children():
             self.trackview.remove(awidget)
         # self.db.add_tracks(id)
         for index, track in enumerate(self.db.get_tracks_from_feed(id)):
-            print('---', index, '---')
             row = ListBoxRowWithData(track, index)
             row.connect('button_play_pause_clicked', self.on_row_play, row)
+            row.connect('button_info_clicked', self.on_row_info, row)
+            row.connect('button_listened_clicked', self.on_row_listened, row)
             row.show()
             self.trackview.add(row)
         widget.hide()
@@ -403,9 +408,8 @@ class MainWindow(Gtk.ApplicationWindow):
             Gdk.Cursor(Gdk.CursorType.WATCH))
 
         self.update_tracks(id)
-        self.scrolledwindow1.set_visible(False)
-        self.scrolledwindow2.set_visible(True)
-        self.scrolledwindow2.show_all()
+        self.stack.set_visible_child_name('tracks')
+        self.stack.get_visible_child().show_all()
         self.play_controls.set_visible(True)
         self.feed_controls.set_visible(False)
         row = self.trackview.get_row_at_index(0)
@@ -417,24 +421,22 @@ class MainWindow(Gtk.ApplicationWindow):
                   self.on_update_tracks_done(result, error))
     def update_tracks(self, id):
         result = None
-        print('update_tracks', id)
         last_track = self.db.get_last_track_from_feed(id)
         last_feed_track = self.db.get_last_track_date(id)
-        print(1, last_track['date'], last_feed_track)
         if last_track['date'] is None or last_feed_track > last_track['date']:
             self.db.add_tracks(id, last_track['date'])
             result = (id, last_track['date'])
-            print('result', result)
-        print('---', last_track['date'], last_feed_track, '---')
         return result
 
     def on_update_tracks_done(self, result, error):
-        print(1, error, result)
         if error is None and result is not None:
             tracks = self.db.get_tracks_from_feed(*result)
             for index, track in enumerate(tracks):
-                print('---', index, '---')
-                row = ListBoxRowWithData(track)
+                row = ListBoxRowWithData(track, index)
+                row.connect('button_play_pause_clicked', self.on_row_play, row)
+                row.connect('button_info_clicked', self.on_row_info, row)
+                row.connect('button_listened_clicked', self.on_row_listened,
+                            row)
                 row.show()
                 self.trackview.add(row)
             self.scrolledwindow2.set_visible(True)
@@ -448,10 +450,10 @@ class MainWindow(Gtk.ApplicationWindow):
             self.updater = None
 
     def on_button_up_clicked(self, widget):
-        self.pause()
-        self.scrolledwindow2.set_visible(False)
-        self.scrolledwindow1.show_all()
-        self.scrolledwindow1.set_visible(True)
+        if self.active_row is not None and self.active_row.is_playing:
+            self.active_row.click_button_play()
+        self.stack.set_visible_child_name('feeds')
+        self.stack.get_visible_child().show_all()
         self.play_controls.set_visible(False)
         self.feed_controls.set_visible(True)
         self.object = None
@@ -470,7 +472,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _sound_menu_stop(self):
         """Pause"""
-        if self.active_row is not None:
+        if self.active_row is not None and self.active_row.is_playing is True:
             self.active_row.click_button_play()
 
     def _sound_menu_pause(self, *args):
@@ -480,25 +482,17 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _sound_menu_next(self, *args):
         """Next"""
-        if self.active_row is not None:
-            index = self.active_row.index
-        else:
-            index = 0
-        index += 1
-        if index > len(self.trackview.get_children()) - 1:
-            index = 0
-        self.active_row = self.trackview.get_row_at_index(index)
-        self.active_row.click_button_play()
+        index = self.get_next_playable_track()
+        if index is not None:
+            row = self.trackview.get_row_at_index(index)
+            row.click_button_play()
 
     def _sound_menu_previous(self, *args):
         """Previous"""
-        if self.active_row is not None:
-            index = self.active_row.index
-        index -= 1
-        if index < 0:
-            index = len(self.trackview.get_children()) - 1
-        self.active_row = self.trackview.get_row_at_index(index)
-        self.active_row.click_button_play()
+        index = self.get_previous_playable_track()
+        if index is not None:
+            row = self.trackview.get_row_at_index(index)
+            row.click_button_play()
 
     def _sound_menu_raise(self):
         """Click on player"""
@@ -506,6 +500,41 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def on_row_selected(self, widget, row):
         pass
+
+    def get_playable_tracks(self):
+        playables = []
+        for index in range(0, len(self.trackview.get_children())):
+            if self.trackview.get_row_at_index(index).can_play():
+                playables.append(index)
+        return sorted(playables)
+
+    def get_next_playable_track(self):
+        playables = self.get_playable_tracks()
+        if len(playables) > 0:
+            if self.active_row is not None and\
+                    self.active_row.index in playables:
+                selected = playables.index(self.active_row.index)
+                next = selected + 1
+                if next >= len(playables):
+                    next = 0
+                return playables[next]
+            else:
+                return playables[0]
+        return None
+
+    def get_previous_playable_track(self):
+        playables = self.get_playable_tracks()
+        if len(playables) > 0:
+            if self.active_row is not None and\
+                    self.active_row.index in playables:
+                selected = playables.index(self.active_row.index)
+                previous = selected - 1
+                if previous < 0:
+                    previous = len(playables) - 1
+                return playables[previous]
+            else:
+                return playables[0]
+        return None
 
     def update_duration(self):
         if self.active_row is not None:
@@ -538,10 +567,10 @@ class MainWindow(Gtk.ApplicationWindow):
             return self.player.status == Status.PLAYING
 
     def on_player_started(self, player, position):
-        print('**** player started ****')
+        pass
 
     def on_player_paused(self, player, position):
-        print('**** player paused ****')
+        pass
 
     def on_player_stopped(self, player, position):
         pass
@@ -765,7 +794,6 @@ class MainWindow(Gtk.ApplicationWindow):
                 for selected in selecteds:
                     self.get_root_window().set_cursor(
                         Gdk.Cursor(Gdk.CursorType.WATCH))
-                    print('adding', selected['url'])
                     self.add_feed(selected['url'])
             else:
                 fpd.destroy()
@@ -793,7 +821,6 @@ class MainWindow(Gtk.ApplicationWindow):
                 model = self.iconview.get_model()
                 for selected in self.iconview.get_selected_items():
                     id = model.get_value(model.get_iter(selected), 0)
-                    print(id)
                     if self.db.remove_feed(id):
                         model.remove(model.get_iter(selected))
             else:
@@ -813,16 +840,14 @@ class MainWindow(Gtk.ApplicationWindow):
             afd.destroy()
 
     def on_toolbar_clicked(self, widget, option):
-        print(widget, option)
+        pass
 
     @async_method(on_done=lambda self,
                   result, error: self.on_add_feed_done(result, error))
     def add_feed(self, url):
-        print(url)
         request = requests.get(url)
         if request.status_code == 200:
             id = self.db.add_feed(url)
-            print(id)
             if id is not None:
                 feed = self.db.get_feed(id)
                 return feed
@@ -855,7 +880,6 @@ class MainWindow(Gtk.ApplicationWindow):
         else:
             if self.menu_selected == arg:
                 widget.set_active(True)
-        print(arg, self.menu[arg].get_active())
 
     def load_css(self):
         style_provider = Gtk.CssProvider()
