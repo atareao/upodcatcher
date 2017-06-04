@@ -323,6 +323,10 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.active_row.is_playing is True:
             self.active_row.set_playing(False)
             self.player.pause()
+            self.control['play-pause'].get_child().set_from_gicon(
+                Gio.ThemedIcon(name='media-playback-start-symbolic'),
+                Gtk.IconSize.BUTTON)
+            self.control['play-pause'].set_tooltip_text(_('Play'))
             self.db.set_track_position(self.active_row.data['id'],
                                        self.active_row.data['position'])
         self.active_row = row
@@ -335,8 +339,8 @@ class MainWindow(Gtk.ApplicationWindow):
             self.control['position'].handler_block_by_func(
                 self.on_position_button_changed)
             self.control['position'].set_value(fraction)
-            self.control['position'].set_label('{0}%'.format(
-                int(fraction * 100)))
+            self.control['label-position'].set_text(
+                _('Position') + ': {0}%'.format(int(fraction * 100)))
             self.control['position'].handler_unblock_by_func(
                 self.on_position_button_changed)
             self.control['play-pause'].get_child().set_from_gicon(
@@ -383,6 +387,11 @@ class MainWindow(Gtk.ApplicationWindow):
             self.sound_menu.signal_paused()
 
             self.player.pause()
+            self.control['play-pause'].get_child().set_from_gicon(
+                Gio.ThemedIcon(name='media-playback-start-symbolic'),
+                Gtk.IconSize.BUTTON)
+            self.control['play-pause'].set_tooltip_text(_('Play'))
+
             self.active_row.set_playing(False)
             self.db.set_track_position(self.active_row.data['id'],
                                        self.active_row.data['position'])
@@ -439,8 +448,10 @@ class MainWindow(Gtk.ApplicationWindow):
                             row)
                 row.show()
                 self.trackview.add(row)
+            '''
             self.scrolledwindow2.set_visible(True)
             self.scrolledwindow2.show_all()
+            '''
         self.get_root_window().set_cursor(
             Gdk.Cursor(Gdk.CursorType.TOP_LEFT_ARROW))
 
@@ -559,8 +570,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.control['position'].handler_block_by_func(
                     self.on_position_button_changed)
                 self.control['position'].set_value(int(fraction * 100))
-                self.control['position'].set_label('{0}%'.format(
-                    int(fraction * 100)))
+                self.control['label-position'].set_text(
+                    _('Position') + ': {0}%'.format(int(fraction * 100)))
                 self.control['position'].handler_unblock_by_func(
                     self.on_position_button_changed)
 
@@ -617,12 +628,20 @@ class MainWindow(Gtk.ApplicationWindow):
         self.get_root_window().set_cursor(
             Gdk.Cursor(Gdk.CursorType.ARROW))
 
-    def on_speed_button_changed(self, widget, value):
-        widget.set_label('{0}x'.format(int(value * 10) / 10))
+    def on_remove_silence_changed(self, widget, value):
+        print(widget.get_active(), value)
+        self.player.set_remove_silence(widget.get_active())
+
+    def on_speed_button_changed(self, widget):
+        value = widget.get_value()
+        self.control['label-speed'].set_text(
+            _('Speed') + ': {0}x'.format(int(value * 10) / 10))
         self.player.set_speed(value)
 
-    def on_position_button_changed(self, widget, value):
-        widget.set_label('{0}%'.format(int(value)))
+    def on_position_button_changed(self, widget):
+        value = widget.get_value()
+        self.control['label-position'].set_label(
+            _('Position' + ': {0}%'.format(int(value))))
         if self.active_row is not None:
             position = self.player.get_position()
             duration = self.active_row.data['duration']
@@ -652,15 +671,64 @@ class MainWindow(Gtk.ApplicationWindow):
         self.play_controls.pack_start(self.control['up'],
                                       False, False, 0)
 
-        self.control['speed'] = Gtk.ScaleButton()
-        self.control['speed'].set_tooltip_text(_('Podcast reproduction speed'))
-        self.control['speed'].set_adjustment(
-            Gtk.Adjustment(1, 0.5, 4, 0.1, 0.1, 1))
+        popover = Gtk.Popover()
+        popover_grid = Gtk.Grid()
+        popover.add(popover_grid)
+        self.control['label-position'] = Gtk.Label(_('Position') + ':')
+        self.control['label-position'].set_alignment(0, 0.5)
+        popover_grid.attach(self.control['label-position'], 0, 0, 5, 1)
+        self.control['position'] = Gtk.Scale()
+        self.control['position'].set_tooltip_text(
+            _('Podcast relative position'))
+        self.control['position'].set_adjustment(
+            Gtk.Adjustment(0, 0, 100, 1, 1, 5))
+        self.control['position'].connect('value-changed',
+                                         self.on_position_button_changed)
+        self.control['position'].set_value(0)
+        popover_grid.attach(self.control['position'], 5, 0, 5, 1)
+
+        self.control['label-speed'] = Gtk.Label(_('Speed') + ':')
+        self.control['label-speed'].set_alignment(0, 0.5)
+        popover_grid.attach(self.control['label-speed'], 0, 1, 5, 1)
+        self.control['speed'] = Gtk.Scale()
+        self.control['speed'].set_adjustment(Gtk.Adjustment(
+            1, 0.5, 4, 0.1, 0.1, 1))
+        self.control['speed'].set_size_request(200, 0)
         self.control['speed'].connect('value-changed',
                                       self.on_speed_button_changed)
         self.control['speed'].set_value(1)
-        self.control['speed'].set_label('1.0x')
-        self.play_controls.pack_start(self.control['speed'],
+        popover_grid.attach(self.control['speed'], 5, 1, 5, 1)
+
+        label = Gtk.Label(_('Remove silence') + ':')
+        label.set_alignment(0, 0.5)
+        popover_grid.attach(label, 0, 2, 5, 1)
+
+        self.control['remove-silence'] = Gtk.Switch()
+        self.control['remove-silence'].connect(
+            'notify::active', self.on_remove_silence_changed)
+        tbox = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 0)
+        tbox.add(self.control['remove-silence'])
+        popover_grid.attach(tbox, 5, 2, 5, 1)
+
+        popover_grid.attach(Gtk.Label(_('Equalizer')), 0, 3, 10, 1)
+
+        for index in range(0, 10):
+            band = 'band{0}'.format(index)
+            self.control[band] = Gtk.Scale.new_with_range(
+                Gtk.Orientation.VERTICAL, -24.0, 12.0, 0.1)
+            self.control[band].set_size_request(0, 200)
+            self.control[band].set_value(0)
+            popover_grid.attach(self.control[band], index, 4, 1, 1)
+
+        popover_grid.show_all()
+
+        self.control['configuration'] = Gtk.MenuButton()
+        self.control['configuration'].set_tooltip_text(_('Configuration'))
+        self.control['configuration'].add(
+            Gtk.Image.new_from_gicon(Gio.ThemedIcon(
+                name='preferences-system-symbolic'), Gtk.IconSize.BUTTON))
+        self.control['configuration'].set_popover(popover)
+        self.play_controls.pack_start(self.control['configuration'],
                                       False, False, 0)
 
         self.control['previous'] = Gtk.Button()
@@ -689,6 +757,7 @@ class MainWindow(Gtk.ApplicationWindow):
                                      self._sound_menu_next)
         self.play_controls.pack_start(self.control['next'], False, False, 0)
 
+        '''
         self.control['position'] = Gtk.ScaleButton()
         self.control['position'].set_tooltip_text(
             _('Podcast relative position'))
@@ -700,6 +769,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.control['position'].set_label('0%')
         self.play_controls.pack_start(self.control['position'],
                                       False, False, 0)
+        '''
 
         self.feed_controls = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 5)
         hb.pack_start(self.feed_controls)
