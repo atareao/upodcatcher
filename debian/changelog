@@ -1,8 +1,8 @@
-upodcatcher (0.2.2-0extras17.04.4) zesty; urgency=medium
+upodcatcher (0.2.3-0extras17.04.0) zesty; urgency=medium
 
   * Added import and export opml
 
- -- Lorenzo Carbonell <lorenzo.carbonell.cerezo@gmail.com>  Sun, 28 May 2017 22:13:55 +0200
+ -- Lorenzo Carbonell <lorenzo.carbonell.cerezo@gmail.com>  Sun, 04 Jun 2017 12:15:44 +0200
 
 upodcatcher (0.2.1-0extras17.04.0) zesty; urgency=medium
 
