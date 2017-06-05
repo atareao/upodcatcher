@@ -43,6 +43,7 @@ from gi.repository import Notify
 import os
 import requests
 import mutagen
+from urllib.parse import urlparse
 from . import comun
 from .comun import _
 from .dbmanager import DBManager
@@ -59,6 +60,7 @@ from .utils import get_pixbuf_from_base64string
 from .opmlparser import create_opml_from_urls, extract_rss_urls_from_opml
 from .listboxrowwithdata import ListBoxRowWithData
 from .showinfodialog import ShowInfoDialog
+from .downloadermanager import DownloaderManager
 
 
 CSS = '''
@@ -204,7 +206,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.trackview.connect('selected-rows-changed',
                                self.on_row_selected_changed)
         # self.trackview.set_activate_on_single_click(False)
-        self.trackview.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.trackview.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
         scrolledwindow2.add(self.trackview)
 
         self.db = DBManager(False)
@@ -221,6 +223,9 @@ class MainWindow(Gtk.ApplicationWindow):
                                     feed['image'],
                                     feed['norder'],
                                     pixbuf])
+
+        self.downloaderManager = DownloaderManager()
+
         self.load_css()
         self.show_all()
         self.stack.set_visible_child_name('feeds')
@@ -295,6 +300,55 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.maximize()
             else:
                 self.unmaximize()
+
+    def on_row_download_started(self, widget, row):
+        row.set_downloading(True)
+
+    def on_row_download_ended(self, widget, row):
+        row.set_downloading(False)
+        path = urlparse(row.data['url']).path
+        extension = os.path.splitext(path)[1]
+        filename = 'podcast_{0}{1}'.format(row.data['id'], extension)
+        pathandfile = os.path.join(comun.PODCASTS_DIR, filename)
+        if os.path.exists(pathandfile):
+            filetype = mutagen.File(pathandfile)
+            duration = filetype.info.length
+            self.db.set_track_downloaded(row.data['id'], filename)
+            self.db.set_track_duration(row.data['id'], duration)
+            row.set_downloaded(True)
+            row.data['filename'] = filename
+            row.set_duration(duration)
+        else:
+            row.set_downloaded(False)
+            self.db.set_track_no_downloaded(row.data['id'])
+            row.data['filename'] = ''
+
+    def on_row_download_failed(self, widget, row):
+        row.set_downloading(False)
+        row.set_downloaded(False)
+        self.db.set_track_no_downloaded(row.data['id'])
+        row.data['filename'] = ''
+
+    def on_row_download(self, widget, row):
+        if row.is_downloaded is True:
+            path = urlparse(row.data['url']).path
+            extension = os.path.splitext(path)[1]
+            filename = os.path.join(
+                comun.PODCASTS_DIR,
+                'podcast_{0}{1}'.format(row.data['id'], extension))
+            if os.path.exists(filename):
+                os.remove(filename)
+                self.db.set_track_no_downloaded(row.data['id'])
+                row.data['filename'] = ''
+                row.set_downloaded(False)
+        else:
+            self.downloaderManager.add(row)
+            self.downloaderManager.connect('started',
+                                           self.on_row_download_started)
+            self.downloaderManager.connect('ended',
+                                           self.on_row_download_ended)
+            self.downloaderManager.connect('failed',
+                                           self.on_row_download_failed)
 
     def on_row_listened(self, widget, row):
         listened = not (row.data['listened'] == 1)
@@ -409,6 +463,7 @@ class MainWindow(Gtk.ApplicationWindow):
             row.connect('button_play_pause_clicked', self.on_row_play, row)
             row.connect('button_info_clicked', self.on_row_info, row)
             row.connect('button_listened_clicked', self.on_row_listened, row)
+            row.connect('button_download_clicked', self.on_row_download, row)
             row.show()
             self.trackview.add(row)
         widget.hide()
@@ -445,6 +500,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 row.connect('button_play_pause_clicked', self.on_row_play, row)
                 row.connect('button_info_clicked', self.on_row_info, row)
                 row.connect('button_listened_clicked', self.on_row_listened,
+                            row)
+                row.connect('button_download_clicked', self.on_row_download,
                             row)
                 row.show()
                 self.trackview.add(row)

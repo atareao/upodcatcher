@@ -92,6 +92,7 @@ else:
         ROOTDIR, '../data')), 'upodcatcher-autostart.desktop')
 PLAY_ICON = os.path.join(ICONDIR, 'play.svg')
 PAUSE_ICON = os.path.join(ICONDIR, 'pause.svg')
+WAIT_ICON = os.path.join(ICONDIR, 'wait.svg')
 DOWNLOAD_ICON = os.path.join(ICONDIR, 'download.svg')
 DELETE_ICON = os.path.join(ICONDIR, 'delete.svg')
 INFO_ICON = os.path.join(ICONDIR, 'info.svg')

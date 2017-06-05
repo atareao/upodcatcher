@@ -48,6 +48,7 @@ DOWNLOAD = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.DOWNLOAD_ICON, 32, 32)
 DOWNLOAD_ANIM = GdkPixbuf.PixbufAnimation.new_from_file(comun.DOWNLOAD_ANIM)
 LDOWNLOAD = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.DOWNLOAD_ICON, 16, 16)
 LDELETE = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.DELETE_ICON, 16, 16)
+LWAIT = GdkPixbuf.Pixbuf.new_from_file_at_size(comun.WAIT_ICON, 16, 16)
 LISTENED = GdkPixbuf.Pixbuf.new_from_file_at_size(
     comun.LISTENED_ICON, 16, 16)
 NOLISTENED = GdkPixbuf.Pixbuf.new_from_file_at_size(
@@ -177,6 +178,7 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
             self.emit('button_play_pause_clicked')
         elif button_name == 'download':
             self.emit('button_download_clicked')
+            self.download.set_from_pixbuf(LWAIT)
         elif button_name == 'listened':
             self.emit('button_listened_clicked')
 
@@ -188,9 +190,7 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         if downloading is True:
             self.play_pause.set_from_animation(DOWNLOAD_ANIM)
         else:
-            if self.data['downloaded'] == 0:
-                self.play_pause.set_from_pixbuf(DOWNLOAD)
-            else:
+            if self.data['downloaded'] == 1:
                 self.play_pause.set_from_pixbuf(PLAY)
 
     def set_downloaded(self, downloaded):
@@ -240,9 +240,6 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         if self.data['duration'] > 0:
             fraction = float(position) / float(self.data['duration'])
             self.progressbar.set_fraction(fraction)
-
-    def set_filename(self, filename):
-        self.data['filename'] = filename
 
     def set_data(self, data):
         self.data = data

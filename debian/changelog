@@ -1,3 +1,9 @@
+upodcatcher (0.2.4-0extras17.04.0) zesty; urgency=medium
+
+  * Download manager
+
+ -- Lorenzo Carbonell <lorenzo.carbonell.cerezo@gmail.com>  Mon, 05 Jun 2017 22:16:01 +0200
+
 upodcatcher (0.2.3-0extras17.04.0) zesty; urgency=medium
 
   * Added import and export opml

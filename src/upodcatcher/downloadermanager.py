@@ -33,6 +33,8 @@ import os
 from .downloader import Downloader
 from . import comun
 
+MAX_DOWNLOADERS = 4
+
 
 class DownloaderManager(GObject.GObject):
     __gsignals__ = {
@@ -43,50 +45,44 @@ class DownloaderManager(GObject.GObject):
 
     def __init__(self):
         GObject.GObject.__init__(self)
-        self.downloader = None
+        self.downloaders = []
         self.queue = []
         self.tries = 0
 
     def emit(self, *args):
         GLib.idle_add(GObject.GObject.emit, self, *args)
 
-    def on_downloader_ended(self, widget, row):
-        self.emit('ended', row)
+    def on_downloader_ended(self, widget, downloader):
+        self.emit('ended', downloader.get_row())
+        self.downloaders.remove(downloader)
         if len(self.queue) > 0:
             new_row = self.queue.pop()
             self.download(new_row)
-        else:
-            self.downloader = None
 
-    def on_downloader_failed(self, widget, row):
-        self.emit('failed', row)
+    def on_downloader_failed(self, widget, downloader):
+        self.emit('failed', downloader.get_row())
         if self.tries < 3:
-            self.queue.insert(0, row)
+            self.downloaders.remove(downloader)
+            self.queue.insert(0, downloader.get_row())
         else:
             self.tries = 0
         if len(self.queue) > 0:
             new_row = self.queue.pop()
-            if new_row == row:
+            if new_row == downloader.get_row():
                 self.tries += 1
             self.download(new_row)
-        else:
-            self.downloader = None
 
     def add(self, row):
-        if self.downloader is None:
+        print('add')
+        if len(self.downloaders) < MAX_DOWNLOADERS:
             self.download(row)
         else:
             self.queue.insert(0, row)
 
     def download(self, row):
-        url = row.data['url']
-        ext = 'mp3'
-        filename = os.path.join(comun.PODCASTS_DIR,
-                                'podcast_{0}.{1}'.format(
-                                    row.data['id'],
-                                    ext))
-        self.downloader = Downloader(url, filename)
-        self.downloader.connect('ended', self.on_downloader_ended, row)
-        self.downloader.connect('failed', self.on_downloader_failed, row)
-        self.downloader.run()
+        downloader = Downloader(row)
+        downloader.connect('ended', self.on_downloader_ended, downloader)
+        downloader.connect('failed', self.on_downloader_failed, downloader)
+        downloader.start()
+        self.downloaders.append(downloader)
         self.emit('started', row)
