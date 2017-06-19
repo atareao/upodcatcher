@@ -24,12 +24,13 @@ import sys
 
 USRDIR = '/usr'
 SHAREDIR = os.path.join(USRDIR, 'share', 'upodcatcher')
+CURRENTDIR = os.path.abspath(os.path.dirname(__file__))
 
 if __name__ == '__main__':
-    if __file__.startswith(USRDIR) or os.getcwd().startswith(USRDIR):
+    if CURRENTDIR.startswith(USRDIR):
         sys.path.append(SHAREDIR)
     else:
-        sys.path.append(os.path.normpath(os.path.join(os.getcwd(), '../src')))
+        sys.path.append(os.path.normpath(os.path.join(CURRENTDIR, '../src')))
 
     from upodcatcher.upodcatcher import main
 

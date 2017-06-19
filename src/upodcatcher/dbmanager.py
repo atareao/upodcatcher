@@ -201,7 +201,7 @@ class DBManager():
                 norder += 1
                 cursor.execute('''INSERT INTO FEEDS(URL, TITLE, IMAGE, LINK,
  DESCRIPTION, NORDER) VALUES(?, ?, ?, ?, ?, ?)''', (url, title, image, link,
- description, norder))
+                                                    description, norder))
                 self.db.commit()
                 ans = cursor.lastrowid
             except sqlite3.IntegrityError as e:
@@ -243,6 +243,7 @@ class DBManager():
                 print('=============================')
                 print(entry)
                 print(entry.itunes_duration)
+                print(entry.id)
                 print('=============================')
                 norder += 1
                 norder2 += 1
@@ -256,7 +257,7 @@ class DBManager():
                 filename = None
                 duration = 0
                 position = 0
-                if upperthan is None or upperthan > date:
+                if upperthan is None or upperthan < date:
                     try:
                         cursor.execute('''INSERT INTO TRACKS(FEED_ID, IDEN,
  DATE, TITLE, URL, LINK, DESCRIPTION, DURATION, POSITION, FILENAME, NORDER)
@@ -600,7 +601,7 @@ if __name__ == '__main__':
     dbmanager = DBManager(create)
     if create is False:
         print(dbmanager.get_feeds())
-        #print(dbmanager.get_tracks())
+        # print(dbmanager.get_tracks())
         print('---', dbmanager.get_last_track_from_feed(10), '---')
     else:
         dbmanager.add_feed('http://feeds.feedburner.com/ugeek')
@@ -620,4 +621,3 @@ if __name__ == '__main__':
         dbmanager.removed_viewed_from_list(1)
         sortedlist = [[1, 2], [2, 1], [3, 5]]
         dbmanager.sort_list(sortedlist)
-

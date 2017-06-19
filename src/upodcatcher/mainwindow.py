@@ -484,6 +484,7 @@ class MainWindow(Gtk.ApplicationWindow):
     @async_method(on_done=lambda self, result, error:
                   self.on_update_tracks_done(result, error))
     def update_tracks(self, id):
+        print('updating....', id)
         result = None
         last_track = self.db.get_last_track_from_feed(id)
         last_feed_track = self.db.get_last_track_date(id)
@@ -495,6 +496,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def on_update_tracks_done(self, result, error):
         if error is None and result is not None:
             tracks = self.db.get_tracks_from_feed(*result)
+            tracks.reverse()
             for index, track in enumerate(tracks):
                 row = ListBoxRowWithData(track, index)
                 row.connect('button_play_pause_clicked', self.on_row_play, row)
@@ -504,7 +506,8 @@ class MainWindow(Gtk.ApplicationWindow):
                 row.connect('button_download_clicked', self.on_row_download,
                             row)
                 row.show()
-                self.trackview.add(row)
+                self.trackview.prepend(row)
+            self.trackview.show_all()
             '''
             self.scrolledwindow2.set_visible(True)
             self.scrolledwindow2.show_all()

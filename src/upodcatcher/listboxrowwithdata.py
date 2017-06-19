@@ -190,7 +190,12 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         if downloading is True:
             self.play_pause.set_from_animation(DOWNLOAD_ANIM)
         else:
-            if self.data['downloaded'] == 1:
+            if self.is_downloaded is True:
+                if self.is_playing is True:
+                    self.play_pause.set_from_pixbuf(PAUSE)
+                else:
+                    self.play_pause.set_from_pixbuf(PLAY)
+            else:
                 self.play_pause.set_from_pixbuf(PLAY)
 
     def set_downloaded(self, downloaded):

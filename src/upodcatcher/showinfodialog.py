@@ -41,7 +41,6 @@ from comun import _
 '''
 from . import comun
 from .comun import _
-#'''
 
 
 class ShowInfoDialog(Gtk.Dialog):
@@ -107,5 +106,6 @@ class ShowInfoDialog(Gtk.Dialog):
 
 
 if __name__ == '__main__':
-    sid = ShowInfoDialog(None, 'uGeek', 'El título', 'https://www.atareao.es', 'Esto es una prueba')
+    sid = ShowInfoDialog(None, 'uGeek', 'El título', 'https://www.atareao.es',
+                         'Esto es una prueba')
     sid.run()

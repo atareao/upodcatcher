@@ -120,7 +120,8 @@ class Player(GObject.GObject):
             self.player.get_state(Gst.CLOCK_TIME_NONE)
             self.player.get_by_name('removesilence').set_property(
                 'remove', self.removesilence)
-            self.player.get_by_name('volume').set_property('volume', self.volume)
+            self.player.get_by_name('volume').set_property('volume',
+                                                           self.volume)
             self.player.get_by_name('equalizer').set_property(
                 'band0', self.equalizer['band0'])
             self.player.get_by_name('equalizer').set_property(

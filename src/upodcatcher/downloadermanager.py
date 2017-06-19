@@ -29,9 +29,7 @@ except Exception as e:
     exit(1)
 from gi.repository import GObject
 from gi.repository import GLib
-import os
 from .downloader import Downloader
-from . import comun
 
 MAX_DOWNLOADERS = 4
 
