@@ -130,6 +130,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.object = None
         self.active_row = None
         self.updater = None
+        self.frame = 0
+        self.pw = 0
 
         self.player = Player()
         self.player.connect('started', self.on_player_started)
@@ -894,6 +896,35 @@ class MainWindow(Gtk.ApplicationWindow):
         self.control['help'].add(Gtk.Image.new_from_gicon(Gio.ThemedIcon(
             name='open-menu-symbolic'), Gtk.IconSize.BUTTON))
         hb.pack_end(self.control['help'])
+
+        self.control['refresh'] = Gtk.Button()
+        self.control['refresh'].add(Gtk.Image.new_from_pixbuf(
+            GdkPixbuf.Pixbuf.new_from_file_at_size(os.path.join(
+                comun.ICONDIR, 'refresh-00.svg'), 24, 24)))
+        self.control['refresh'].connect('clicked', self.refresh)
+        hb.pack_end(self.control['refresh'])
+
+    def update_refresh_icon(self):
+        self.frame += 1
+        if self.frame == 12:
+            self.frame = 0
+        icon = os.path.join(comun.ICONDIR,
+                            'refresh-%02d.svg' % (self.frame))
+        self.control['refresh'].get_child().set_from_pixbuf(
+            GdkPixbuf.Pixbuf.new_from_file_at_size(icon, 24, 24))
+        return True
+
+    def refresh(self, widget):
+        if self.pw > 0:
+            GLib.source_remove(self.pw)
+            self.pw = 0
+            self.frame = 0
+            icon = os.path.join(comun.ICONDIR,
+                                'refresh-%02d.svg' % (self.frame))
+            self.control['refresh'].get_child().set_from_pixbuf(
+                GdkPixbuf.Pixbuf.new_from_file_at_size(icon, 24, 24))
+        else:
+            self.pw = GLib.timeout_add_seconds(1, self.update_refresh_icon)
 
     def on_search_feed_clicked(self, widget):
         if self.object is None:
