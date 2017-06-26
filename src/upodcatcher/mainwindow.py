@@ -51,7 +51,7 @@ from .player import Player
 from .sound_menu import SoundMenuControls
 from dbus.mainloop.glib import DBusGMainLoop
 from .player import Status
-from .async import async_method
+from .async import async_function
 from .addfeeddialog import AddFeedDialog
 from .searchfeeddialog import SearchFeedDialog
 from .itunes import PodcastClient
@@ -61,7 +61,7 @@ from .opmlparser import create_opml_from_urls, extract_rss_urls_from_opml
 from .listboxrowwithdata import ListBoxRowWithData
 from .showinfodialog import ShowInfoDialog
 from .downloadermanager import DownloaderManager
-
+from .newsvg import put_text
 
 CSS = '''
 #button:hover,
@@ -218,13 +218,15 @@ class MainWindow(Gtk.ApplicationWindow):
             pixbuf = get_pixbuf_from_base64string(feed['image'])
             if not os.path.exists(thumbnail):
                 pixbuf.savev(thumbnail, 'png', [], [])
+            unlistened = self.db.get_unlistened_tracks_in_feed(feed['id'])
+            print(0, '---', unlistened)
 
             self.storefeeds.append([feed['id'],
                                     feed['url'],
                                     feed['title'],
                                     feed['image'],
                                     feed['norder'],
-                                    pixbuf])
+                                    put_text(pixbuf, str(unlistened))])
 
         self.downloaderManager = DownloaderManager()
 
@@ -483,39 +485,70 @@ class MainWindow(Gtk.ApplicationWindow):
         self.trackview.select_row(row)
         self.trackview.handler_unblock_by_func(self.on_row_selected)
 
-    @async_method(on_done=lambda self, result, error:
-                  self.on_update_tracks_done(result, error))
-    def update_tracks(self, id):
-        print('updating....', id)
-        result = None
-        last_track = self.db.get_last_track_from_feed(id)
-        last_feed_track = self.db.get_last_track_date(id)
-        if last_track['date'] is None or last_feed_track > last_track['date']:
-            self.db.add_tracks(id, last_track['date'])
-            result = (id, last_track['date'])
-        return result
+    def update_feeds(self):
+        def on_update_feeds_done(results, error):
+            if error is None and len(results) > 0:
+                for aresult in results:
+                    print(aresult)
+            self.refresh(None)
 
-    def on_update_tracks_done(self, result, error):
-        if error is None and result is not None:
-            tracks = self.db.get_tracks_from_feed(*result)
-            tracks.reverse()
-            for index, track in enumerate(tracks):
-                row = ListBoxRowWithData(track, index)
-                row.connect('button_play_pause_clicked', self.on_row_play, row)
-                row.connect('button_info_clicked', self.on_row_info, row)
-                row.connect('button_listened_clicked', self.on_row_listened,
-                            row)
-                row.connect('button_download_clicked', self.on_row_download,
-                            row)
-                row.show()
-                self.trackview.prepend(row)
-            self.trackview.show_all()
-            '''
-            self.scrolledwindow2.set_visible(True)
-            self.scrolledwindow2.show_all()
-            '''
-        self.get_root_window().set_cursor(
-            Gdk.Cursor(Gdk.CursorType.TOP_LEFT_ARROW))
+        @async_function(on_done=on_update_feeds_done)
+        def do_update_feeds_in_thread():
+            print('updating feeds')
+            results = []
+            for feed in self.storefeeds:
+                print(feed[0], feed[1])
+                id = feed[0]
+                unlistened = self.db.get_unlistened_tracks_in_feed(id)
+                print(0, '---', unlistened)
+                feed[5] = put_text(feed[5], str(unlistened))
+                print(1)
+                results.append([id, unlistened])
+            return results
+
+        do_update_feeds_in_thread()
+
+    def update_tracks(self, id):
+
+        def on_update_tracks_done(result, error):
+            if error is None and result is not None:
+                tracks = self.db.get_tracks_from_feed(*result)
+                tracks.reverse()
+                for index, track in enumerate(tracks):
+                    row = ListBoxRowWithData(track, index)
+                    row.connect('button_play_pause_clicked',
+                                self.on_row_play,
+                                row)
+                    row.connect('button_info_clicked', self.on_row_info, row)
+                    row.connect('button_listened_clicked',
+                                self.on_row_listened,
+                                row)
+                    row.connect('button_download_clicked',
+                                self.on_row_download,
+                                row)
+                    row.show()
+                    self.trackview.prepend(row)
+                self.trackview.show_all()
+                '''
+                self.scrolledwindow2.set_visible(True)
+                self.scrolledwindow2.show_all()
+                '''
+            self.get_root_window().set_cursor(
+                Gdk.Cursor(Gdk.CursorType.TOP_LEFT_ARROW))
+
+        @async_function(on_done=on_update_tracks_done)
+        def do_update_tracks_in_thread(id):
+            print('updating....', id)
+            result = None
+            last_track = self.db.get_last_track_from_feed(id)
+            last_feed_track = self.db.get_last_track_date(id)
+            if last_track['date'] is None or\
+                    last_feed_track > last_track['date']:
+                self.db.add_tracks(id, last_track['date'])
+                result = (id, last_track['date'])
+            return result
+
+        do_update_tracks_in_thread(id)
 
     def kill_updater(self):
         if self.updater is not None:
@@ -925,6 +958,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 GdkPixbuf.Pixbuf.new_from_file_at_size(icon, 24, 24))
         else:
             self.pw = GLib.timeout_add_seconds(1, self.update_refresh_icon)
+            self.update_feeds()
 
     def on_search_feed_clicked(self, widget):
         if self.object is None:
@@ -936,33 +970,38 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.search_feed(query)
             sfd.destroy()
 
-    @async_method(on_done=lambda self,
-                  result, error: self.on_search_feed_done(result, error))
     def search_feed(self, query):
-        try:
-            itp = PodcastClient()
-            return itp.search(query)
-        except Exception as e:
-            print(e)
-        return None
 
-    def on_search_feed_done(self, result, error):
-        if result is not None and len(result) > 0:
-            fpd = FoundPodcastsDDialog(self, result)
-            if fpd.run() == Gtk.ResponseType.ACCEPT:
-                selecteds = fpd.get_selecteds()
-                fpd.destroy()
-                for selected in selecteds:
+        def on_search_feed_done(result, error):
+            if result is not None and len(result) > 0:
+                fpd = FoundPodcastsDDialog(self, result)
+                if fpd.run() == Gtk.ResponseType.ACCEPT:
+                    selecteds = fpd.get_selecteds()
+                    fpd.destroy()
+                    for selected in selecteds:
+                        self.get_root_window().set_cursor(
+                            Gdk.Cursor(Gdk.CursorType.WATCH))
+                        self.add_feed(selected['url'])
+                else:
+                    fpd.destroy()
                     self.get_root_window().set_cursor(
-                        Gdk.Cursor(Gdk.CursorType.WATCH))
-                    self.add_feed(selected['url'])
+                        Gdk.Cursor(Gdk.CursorType.TOP_LEFT_ARROW))
             else:
-                fpd.destroy()
                 self.get_root_window().set_cursor(
-                    Gdk.Cursor(Gdk.CursorType.TOP_LEFT_ARROW))
-        else:
-            self.get_root_window().set_cursor(
-                Gdk.Cursor(Gdk.CursorType.WATCH))
+                    Gdk.Cursor(Gdk.CursorType.WATCH))
+
+        @async_function(on_done=on_search_feed_done)
+        def do_search_feed(query):
+            try:
+                itp = PodcastClient()
+                return itp.search(query)
+            except Exception as e:
+                print(e)
+            return None
+
+        do_search_feed(query)
+
+
 
     def on_remove_feed_clicked(self, widget):
         if self.object is None and\
@@ -1003,31 +1042,33 @@ class MainWindow(Gtk.ApplicationWindow):
     def on_toolbar_clicked(self, widget, option):
         pass
 
-    @async_method(on_done=lambda self,
-                  result, error: self.on_add_feed_done(result, error))
     def add_feed(self, url):
-        request = requests.get(url)
-        if request.status_code == 200:
-            id = self.db.add_feed(url)
-            if id is not None:
-                feed = self.db.get_feed(id)
-                return feed
-        return None
+        def on_add_feed_done(result, error):
+            if result is not None:
+                thumbnail = os.path.join(comun.THUMBNAILS_DIR,
+                                         'feed_{0}.png'.format(result['id']))
+                pixbuf = get_pixbuf_from_base64string(result['image'])
+                pixbuf.savev(thumbnail, 'png', [], [])
+                self.storefeeds.append([result['id'],
+                                        result['url'],
+                                        result['title'],
+                                        result['image'],
+                                        result['norder'],
+                                        pixbuf])
+            self.get_root_window().set_cursor(
+                Gdk.Cursor(Gdk.CursorType.TOP_LEFT_ARROW))
 
-    def on_add_feed_done(self, result, error):
-        if result is not None:
-            thumbnail = os.path.join(comun.THUMBNAILS_DIR,
-                                     'feed_{0}.png'.format(result['id']))
-            pixbuf = get_pixbuf_from_base64string(result['image'])
-            pixbuf.savev(thumbnail, 'png', [], [])
-            self.storefeeds.append([result['id'],
-                                    result['url'],
-                                    result['title'],
-                                    result['image'],
-                                    result['norder'],
-                                    pixbuf])
-        self.get_root_window().set_cursor(
-            Gdk.Cursor(Gdk.CursorType.TOP_LEFT_ARROW))
+        @async_function(on_done=on_add_feed_done)
+        def do_add_feed(url):
+            request = requests.get(url)
+            if request.status_code == 200:
+                id = self.db.add_feed(url)
+                if id is not None:
+                    feed = self.db.get_feed(id)
+                    return feed
+            return None
+
+        do_add_feed()
 
     def on_toggled(self, widget, arg):
         if widget.get_active() is True:

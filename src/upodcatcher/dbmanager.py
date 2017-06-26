@@ -226,6 +226,22 @@ class DBManager():
                     last_date = new_date
         return last_date
 
+    def get_new_tracks(self, feed_id, upperthan=None):
+        new_tracks = 0
+        feed = self.get_feed(feed_id)
+        if feed is None:
+            return 0
+        url = feed['url']
+        r = requests.get(url, verify=False)
+        if r.status_code == 200:
+            d = feedparser.parse(r.text)
+            for index, entry in enumerate(d.entries):
+                date = parse(entry.published).strftime('%Y%m%dT%H%M%S')
+                if upperthan is None or upperthan < date:
+                    new_tracks += 1
+            return new_tracks
+        return 0
+
     def add_tracks(self, feed_id, upperthan=None):
         feed = self.get_feed(feed_id)
         if feed is None:
@@ -538,6 +554,20 @@ NORDER) VALUES(?, ?, ?, ?)''', (list_id, track_id, False, norder))
             print('---', e, '---')
         cursor.close()
         return None
+
+    def get_unlistened_tracks_in_feed(self, id):
+        print(id, type(id))
+        ans = 0
+        cursor = self.db.cursor()
+        try:
+            cursor.execute('''SELECT COUNT(LISTENED) FROM TRACKS WHERE
+                           LISTENED=0 AND FEED_ID=?;''', (id,))
+            ans = cursor.fetchone()[0]
+            cursor.close()
+        except (sqlite3.IntegrityError, AttributeError) as e:
+            print('---', e, '---')
+        cursor.close()
+        return ans
 
     def get_last_track_from_feed(self, id):
         cursor = self.db.cursor()
