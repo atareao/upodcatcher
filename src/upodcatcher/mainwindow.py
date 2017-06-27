@@ -75,7 +75,6 @@ CSS = '''
     border-width: 0;
     border-style: solid;
     text-shadow: 0 0 rgba(0, 0, 0, 0);
-    -gtk-icon-effect: none;
     -gtk-icon-shadow: 0 0 rgba(0, 0, 0, 0);
     box-shadow: 0 0 rgba(0, 0, 0, 0), 0 0 rgba(0, 0, 0, 0);
 }
@@ -208,7 +207,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.trackview.connect('selected-rows-changed',
                                self.on_row_selected_changed)
         # self.trackview.set_activate_on_single_click(False)
-        self.trackview.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
+        # self.trackview.set_selection_mode(Gtk.SelectionMode.MULTIPLE)
         scrolledwindow2.add(self.trackview)
 
         self.db = DBManager(False)

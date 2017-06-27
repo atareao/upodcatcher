@@ -70,6 +70,7 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
 
     def __init__(self, data, index):
         super(Gtk.ListBoxRow, self).__init__()
+        self.set_name('listboxrowwithdata')
         grid = Gtk.Grid()
         self.add(grid)
 
@@ -81,6 +82,7 @@ class ListBoxRowWithData(Gtk.ListBoxRow):
         grid.attach(self.image, 0, 0, 4, 4)
 
         self.label1 = Gtk.Label()
+        self.label1.set_name('label')
         self.label1.set_margin_top(5)
         self.label1.set_alignment(0, 0.5)
         grid.attach(self.label1, 4, 0, 1, 1)
