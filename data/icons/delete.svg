@@ -56,7 +56,7 @@
      transform="translate(0,-271.60001)">
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:26.93934441px;line-height:1.25;font-family:FontAwesome;-inkscape-font-specification:FontAwesome;letter-spacing:0px;word-spacing:0px;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.25255632"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:26.93934441px;line-height:1.25;font-family:FontAwesome;-inkscape-font-specification:FontAwesome;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.25255632"
        x="2.1166861"
        y="293.9212"
        id="text4577"><tspan
@@ -64,6 +64,6 @@
          id="tspan4575"
          x="2.1166861"
          y="293.9212"
-         style="fill:#ffffff;fill-opacity:1;stroke-width:0.25255632"></tspan></text>
+         style="fill:#000000;fill-opacity:1;stroke-width:0.25255632"></tspan></text>
   </g>
 </svg>
