@@ -75,7 +75,6 @@ CSS = '''
     border-width: 0;
     border-style: solid;
     text-shadow: 0 0 rgba(0, 0, 0, 0);
-    -gtk-icon-shadow: 0 0 rgba(0, 0, 0, 0);
     box-shadow: 0 0 rgba(0, 0, 0, 0), 0 0 rgba(0, 0, 0, 0);
 }
 #button:hover{
